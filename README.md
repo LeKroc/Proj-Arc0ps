@@ -54,11 +54,12 @@ Pour lancer le projet localement :
 ## 👥 L'Équipe
 Projet réalisé dans le cadre du cursus **DevSecOps**.
 
-* **[Ton Nom/Pseudo]** - *Rôle*
-* **[Nom Collègue 1]** - *Rôle*
-* **[Nom Collègue 2]** - *Rôle*
+* **LeKroc** - *Owner*
+* **Luca** - *Dev*
+* **Rayan** - *Dev*
+* **Bost** - *Dev*
 
 ---
 <div align="center">
-  <sub>Projet académique - 2024/2025</sub>
+  <sub>Projet Guardia - 2025</sub>
 </div>
