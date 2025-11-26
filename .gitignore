@@ -1,0 +1,22 @@
+# Ignorer la base de données réelle (contient les secrets)
+*.db
+*.sqlite
+*.sqlite3
+/db/*.db
+
+# Ignorer les dossiers de configuration locale IDE
+.vscode/
+.idea/
+
+# Ignorer les fichiers système inutiles
+.DS_Store
+Thumbs.db
+
+# (Optionnel) Ignorer le fichier de config PHP s'il contient des mots de passe
+/config/db.php
+
+# Ignorer les fichiers de requêtes SQL
+/query-sql/*
+
+# Ignorer les fichiers de debug admin qui est un couteau suisse pour le developpement
+# si on veux retirer le debug tool admin_debug.php

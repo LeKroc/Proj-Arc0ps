@@ -1,0 +1,160 @@
+/* style.css - Thème Sombre & Effets */
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: linear-gradient(135deg, #1a1a2e 0%, #0f0f1d 100%); /* Dégradé de fond subtil */
+    color: #e0e0e0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    margin: 0;
+    overflow: hidden; /* Empêche les barres de défilement indésirables */
+    position: relative;
+}
+
+/* Effet d'arrière-plan animé (particules ou étoiles) */
+body::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: 
+        radial-gradient(circle at top left, rgba(132, 94, 247, 0.1) 0%, transparent 20%),
+        radial-gradient(circle at bottom right, rgba(255, 0, 128, 0.08) 0%, transparent 20%);
+    opacity: 0.7;
+    animation: backgroundPulse 15s infinite alternate ease-in-out; /* Animation douce */
+}
+
+@keyframes backgroundPulse {
+    0% { transform: scale(1); opacity: 0.7; }
+    100% { transform: scale(1.1); opacity: 0.8; }
+}
+
+
+.auth-container {
+    background: #21213b;
+    padding: 40px;
+    border-radius: 12px; /* Rayon de bordure légèrement plus grand */
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.6); /* Ombre plus intense */
+    width: 100%;
+    max-width: 400px;
+    border: 1px solid #3a3a5e;
+    position: relative; /* Pour Z-index */
+    z-index: 10; /* Assure que le conteneur est au-dessus de l'animation de fond */
+    transform: translateY(0);
+    animation: fadeInScale 0.8s ease-out forwards; /* Animation d'apparition */
+}
+
+@keyframes fadeInScale {
+    from { opacity: 0; transform: translateY(20px) scale(0.95); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+h2 {
+    text-align: center;
+    color: #f0f0f0;
+    margin-bottom: 30px;
+    font-weight: 600;
+    letter-spacing: 0.5px; /* Espacement de lettres subtil */
+}
+
+.form-group {
+    margin-bottom: 20px;
+}
+
+label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 500;
+    color: #c0c0c0;
+}
+
+input[type="text"],
+input[type="email"],
+input[type="password"] {
+    width: 100%;
+    padding: 12px;
+    border: 1px solid #3a3a5e;
+    border-radius: 6px;
+    box-sizing: border-box;
+    transition: border-color 0.3s ease, background-color 0.3s ease, box-shadow 0.3s ease; /* Transitions plus lisses */
+    font-size: 16px;
+    background-color: #2b2b4d;
+    color: #e0e0e0;
+}
+
+input[type="text"]:focus,
+input[type="email"]:focus,
+input[type="password"]:focus {
+    border-color: #a47ef7; /* Accent violet plus clair au focus */
+    outline: none;
+    box-shadow: 0 0 0 4px rgba(164, 126, 247, 0.3); /* Ombre du focus plus visible */
+    background-color: #33335f;
+}
+
+.btn-primary {
+    width: 100%;
+    padding: 14px; /* Padding légèrement augmenté pour le bouton */
+    background: linear-gradient(45deg, #845ef7 0%, #6c47c2 100%); /* Dégradé sur le bouton */
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 18px;
+    font-weight: 600;
+    letter-spacing: 0.8px;
+    transition: background-color 0.3s ease, transform 0.15s ease, box-shadow 0.3s ease;
+    box-shadow: 0 4px 10px rgba(132, 94, 247, 0.3); /* Ombre pour le bouton */
+}
+
+.btn-primary:hover {
+    background: linear-gradient(45deg, #7a50e0 0%, #5d3aa8 100%); /* Dégradé au survol */
+    transform: translateY(-2px) scale(1.01); /* Effet de légère élévation et agrandissement */
+    box-shadow: 0 6px 15px rgba(132, 94, 247, 0.4);
+}
+
+.btn-primary:active {
+    transform: translateY(0px) scale(0.99); /* Effet de "clic" */
+    box-shadow: 0 2px 5px rgba(132, 94, 247, 0.2);
+}
+
+.link-switch {
+    text-align: center;
+    margin-top: 25px; /* Marge légèrement augmentée */
+    font-size: 15px; /* Taille de police légèrement augmentée */
+    color: #a0a0a0;
+}
+
+.link-switch a {
+    color: #a47ef7; /* Liens en violet plus clair */
+    text-decoration: none;
+    font-weight: 500;
+    transition: color 0.3s ease, text-shadow 0.3s ease; /* Transition sur les liens */
+}
+
+.link-switch a:hover {
+    text-decoration: underline;
+    color: #c1a8f9; /* Couleur plus claire au survol */
+    text-shadow: 0 0 5px rgba(164, 126, 247, 0.5); /* Effet lumineux au survol */
+}
+
+/* Padding légèrement augmenté pour le bouton */
+.btn-login-or-register {
+    width: 100%;
+    padding: 14px; /* Padding légèrement augmenté pour le bouton */
+    background: linear-gradient(45deg, #845ef7 0%, #6c47c2 100%); /* Dégradé sur le bouton */
+    color: white;
+    text-decoration: none;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 18px;
+    font-weight: 600;
+    letter-spacing: 0.8px;
+    transition: background-color 0.3s ease, transform 0.15s ease, box-shadow 0.3s ease;
+    box-shadow: 0 4px 10px rgba(132, 94, 247, 0.3); /* Ombre pour le bouton */
+}
+/* ============================================== */
