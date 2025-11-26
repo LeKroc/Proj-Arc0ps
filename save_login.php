@@ -7,32 +7,41 @@ foreach ($paths as $p) {
 if (!$db_found) die("❌ Erreur : Impossible de trouver db.php. Vérifie ton dossier.");
 
 $message = "";
+// Assurez-vous que $pdo est initialisé et que l'environnement est configuré.
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (isset($_POST['action']) && $_POST['action'] === 'test_login') {
-        $email_or_username = $_POST['email'];
-        $pass  = $_POST['password'];
+        
+        // 1. Récupération des données POST
+        $email_or_username = $_POST['email']; // Suppose que le champ d'entrée s'appelle 'email'
+        $pass              = $_POST['password'];
 
-        $stmt = $pdo->prepare("
+        // 2. Correction de la Requête SQL : Ajouter les guillemets manquants et lier correctement
+        $sql = "
             SELECT id, username, password 
             FROM users 
-            WHERE email = :input OR username = :input
-        ");
-
-        $stmt = $pdo->prepare("SELECT id, username, password FROM users WHERE email = :e");
-        $stmt->execute(['e' => $email_or_username]);
-        $user = $stmt->fetch();
+            WHERE email = :input OR username = :input 
+        ";
+        
+        $stmt = $pdo->prepare($sql);
+        
+        // 3. Correction de l'exécution : Utiliser le paramètre correct
+        $stmt->execute(['input' => $email_or_username]);
+        
+        $user = $stmt->fetch(PDO::FETCH_ASSOC); // Optionnel : Spécifier le mode de récupération pour plus de clarté
 
         if ($user && password_verify($pass, $user['password'])) {
-            // LOGIN SUCCÈS
+            // ✅ LOGIN SUCCÈS
+            // Démarrez la session seulement après une vérification réussie
             session_start();
-            $_SESSION['user_id'] = $user['id'];
+            $_SESSION['user_id']  = $user['id'];
             $_SESSION['username'] = $user['username'];
+            
             header('Location: dashboard.php');
             exit;
         } else {
-            // ÉCHEC LOGIN
-            $message = "❌ Erreur : Adresse e-mail ou mot de passe incorrect.";
+            // ❌ ÉCHEC LOGIN
+            $message = "❌ Erreur : Adresse e-mail/Username ou mot de passe incorrect.";
         }
     }
 }
