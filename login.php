@@ -10,34 +10,37 @@ $message = "";
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (isset($_POST['action']) && $_POST['action'] === 'test_login') {
-        $email_or_username = $_POST['email'];
-        $pass  = $_POST['password'];
+        
+        $identifier = $_POST['identifier']; 
+        $pass       = $_POST['password'];
 
-        $stmt = $pdo->prepare("
-            SELECT id, username, password 
-            FROM users 
-            WHERE email = :input OR username = :input
-        ");
+        // CORRECTION ICI : Utilisation de marqueurs distincts
+        $sql = "SELECT id, username, password 
+                FROM users 
+                WHERE email = :email_val OR username = :user_val";
+        
+        $stmt = $pdo->prepare($sql);
+        
+        // CORRECTION LIGNE 30 : On lie les deux marqueurs à la même variable $identifier
+        $stmt->execute([
+            'email_val' => $identifier, 
+            'user_val'  => $identifier
+        ]);
 
-        $stmt = $pdo->prepare("SELECT id, username, password FROM users WHERE email = :e");
-        $stmt->execute(['e' => $email_or_username]);
-        $user = $stmt->fetch();
+        $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
         if ($user && password_verify($pass, $user['password'])) {
-            // LOGIN SUCCÈS
             session_start();
-            $_SESSION['user_id'] = $user['id'];
+            $_SESSION['user_id']  = $user['id'];
             $_SESSION['username'] = $user['username'];
-            header('Location: login_true.php');   // login_true pour debug la connection ou dashboard.php pour aller a la bonne destination
+            header('Location: dashboard.php');
             exit;
         } else {
-            // ÉCHEC LOGIN
-            $message = "❌ Erreur : Adresse e-mail ou mot de passe incorrect.";
+            $message = "❌ Erreur : Identifiant ou mot de passe incorrect.";
         }
     }
 }
-
-?>  
+?> 
 
 <!DOCTYPE html>
 <html lang="fr">
@@ -60,8 +63,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <input type="hidden" name="action" value="test_login">
             
             <div class="form-group">
-                <label for="email">Adresse e-mail</label>
-                <input type="email" id="email" name="email" required>
+                <label for="identifier">Adresse e-mail ou nom d'utilisateur</label>
+                <input type="text" id="identifier" name="identifier" required>
             </div>
 
             <div class="form-group">
@@ -73,7 +76,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         </form>
 
         <p class="link-switch">
-            Pas encore de compte ? <a href="register.html">S'inscrire ici</a>
+            Pas encore de compte ? <a href="register.php">S'inscrire ici</a>
         </p>
     </div>
 </body>
