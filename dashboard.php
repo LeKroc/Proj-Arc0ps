@@ -7,7 +7,7 @@
     
     <link rel="icon" type="image/x-icon" href="assets/favicon.ico">
 
-    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="style-dashboard.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <link rel="icon"
