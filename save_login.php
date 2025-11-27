@@ -69,9 +69,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <input type="hidden" name="action" value="test_login">
             
             <div class="form-group">
-                <label for="email">Adresse e-mail</label>
-                <input type="email" id="email" name="email" required>
-            </div>
+    <label for="identifier">Adresse e-mail ou nom d'utilisateur</label>
+    <input type="text" id="identifier" name="identifier" required>
+</div>
 
             <div class="form-group">
                 <label for="password">Mot de passe</label>

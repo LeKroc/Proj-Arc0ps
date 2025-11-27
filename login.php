@@ -28,7 +28,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             session_start();
             $_SESSION['user_id'] = $user['id'];
             $_SESSION['username'] = $user['username'];
-            header('Location: dashboard.php');
+            header('Location: login_true.php');   // login_true pour debug la connection ou dashboard.php pour aller a la bonne destination
             exit;
         } else {
             // ÉCHEC LOGIN
@@ -36,7 +36,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 }
-// ⚠️ SUPPRESSION des requêtes $users, $projects, et $members
+
 ?>  
 
 <!DOCTYPE html>
