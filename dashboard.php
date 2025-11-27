@@ -19,7 +19,7 @@
         <main class="main-content">
             <header class="header">
                 <div class="welcome-section">
-                    <h1>Welcome back, Anish 👋</h1>
+                    <h1>Welcome back,  👋</h1>
                     <p class="time">Time: <span id="time-display">--:--</span></p>
                 </div>
             </header>
