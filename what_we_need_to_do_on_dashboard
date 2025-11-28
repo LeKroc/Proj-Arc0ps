@@ -20,7 +20,9 @@ les projets affichés contiennent :
     - date de dernière modification
 
 
-notre db c'est -- 1. Table Users
+notre db si tu veux utiliser des variable dedans on a :
+
+-- 1. Table Users
 CREATE TABLE users (
     id INT AUTO_INCREMENT PRIMARY KEY,
     username VARCHAR(100) NOT NULL UNIQUE,

@@ -74,6 +74,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Inscription - Λrc0ps</title>
     <link rel="stylesheet" href="style.css"> 
+    <link rel="icon" type="image/x-icon" href="assets/logo_Arc0ps.ico">
 </head>
 <body>
     <div class="auth-container">

@@ -4,17 +4,171 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Λrc0ps</title>
-    <link rel="stylesheet" href="style.css"> </head>
+    <link rel="icon" type="image/x-icon" href="assets/logo_Arc0ps.ico">
+    
+    <style>
+        /* =========================================
+           BASES & FOND D'ÉCRAN (Thème Sombre)
+           ========================================= */
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            /* Le fond sombre avec dégradé */
+            background: linear-gradient(135deg, #1a1a2e 0%, #0f0f1d 100%);
+            color: #e0e0e0;
+            
+            /* Le centrage parfait (Flexbox) */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            overflow-x: hidden; /* Évite le scroll horizontal dû aux animations */
+            position: relative;
+        }
+
+        /* Animation d'arrière-plan (lueur subtile) */
+        body::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: 
+                radial-gradient(circle at top left, rgba(132, 94, 247, 0.1) 0%, transparent 20%),
+                radial-gradient(circle at bottom right, rgba(255, 0, 128, 0.08) 0%, transparent 20%);
+            opacity: 0.7;
+            animation: backgroundPulse 15s infinite alternate ease-in-out;
+            z-index: -1; /* Place l'animation derrière tout le reste */
+        }
+
+        @keyframes backgroundPulse {
+            0% { transform: scale(1); opacity: 0.7; }
+            100% { transform: scale(1.1); opacity: 0.8; }
+        }
+
+        /* =========================================
+           STRUCTURE (Conteneurs)
+           ========================================= */
+        
+        /* Conteneur global pour limiter la largeur */
+        #index-column {
+            width: 100%;
+            max-width: 400px;
+            padding: 20px;
+            position: relative;
+            z-index: 10;
+        }
+
+        /* Gestion du LOGO */
+        .logo-container {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .fit-picture {
+            width: 100%; /* Taille fixe pour éviter qu'il soit trop gros */
+            height: auto;
+            display: block;
+            margin: 0 auto;
+        }
+
+        /* =========================================
+           BOÎTE D'AUTHENTIFICATION (La carte)
+           ========================================= */
+        .auth-container {
+            background: #21213b; /* Couleur de fond de la carte */
+            padding: 40px;
+            border-radius: 12px;
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.6);
+            border: 1px solid #3a3a5e;
+            text-align: center;
+            
+            /* Animation d'apparition */
+            transform: translateY(0);
+            animation: fadeInScale 0.8s ease-out forwards;
+        }
+
+        @keyframes fadeInScale {
+            from { opacity: 0; transform: translateY(20px) scale(0.95); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+
+        /* =========================================
+           TYPOGRAPHIE & ÉLÉMENTS
+           ========================================= */
+        h1 {
+            color: #f0f0f0;
+            margin-bottom: 10px;
+            font-size: 24px;
+            font-weight: 600;
+        }
+
+        p {
+            color: #b0b0c0;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+
+        /* =========================================
+           BOUTONS (Style Violet)
+           ========================================= */
+        .auth-links {
+            display: flex;
+            flex-direction: column;
+            gap: 15px; /* Espace entre les deux boutons */
+        }
+
+        .btn-login-or-register {
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(45deg, #845ef7 0%, #6c47c2 100%);
+            color: white;
+            text-decoration: none;
+            border: none;
+            border-radius: 6px;
+            font-size: 16px;
+            font-weight: 600;
+            letter-spacing: 0.8px;
+            text-align: center;
+            box-sizing: border-box; /* Important pour que le padding ne dépasse pas */
+            
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 10px rgba(132, 94, 247, 0.3);
+            display: block; /* Assure que le lien se comporte comme un bloc */
+        }
+
+        .btn-login-or-register:hover {
+            background: linear-gradient(45deg, #7a50e0 0%, #5d3aa8 100%);
+            transform: translateY(-2px) scale(1.01);
+            box-shadow: 0 6px 15px rgba(132, 94, 247, 0.4);
+        }
+
+        .btn-login-or-register:active {
+            transform: translateY(0px) scale(0.99);
+        }
+
+    </style>
+</head>
 <body>
-    <img class="fit-picture" src="assets/LOGO_Arc0ps.png"> 
-    <div class="auth-container">
-        <h1>Bienvenue sur Λrc0ps</h1>
-        <p>La plateforme de gestion de project qui repond a vos besoins.</p>
-        <br>
-        <div class="auth-links">
-        <a href="login.php" class="btn-login-or-register">Se Connecter</a>
-        <a href="register.php" class="btn-login-or-register">S'inscrire</a>
+
+    <div id="index-column"> 
+        
+        <div class="logo-container">
+            <img class="fit-picture" src="assets/LOGO_Arc0ps.png" alt="Logo Arc0ps"> 
+        </div>
+
+        <div class="auth-container">
+            <h1>Bienvenue sur Λrc0ps</h1>
+            <p>La plateforme de gestion de projet qui répond à vos besoins.</p>
+            
+            <div class="auth-links">
+                <a href="login.php" class="btn-login-or-register">Se Connecter</a>
+                <a href="register.php" class="btn-login-or-register">S'inscrire</a>
+            </div>
+        </div>
+        
     </div>
-    </div>
+
 </body>
 </html>

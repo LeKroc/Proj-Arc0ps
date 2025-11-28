@@ -1,11 +1,11 @@
 /* --- CONFIGURATION GLOBALE --- */
 :root {
-    --bg-dark: #1e1e2f;       /* Fond principal sombre */
-    --sidebar-bg: #27293d;    /* Fond de la sidebar */
+    --bg-dark: #1e1e2f;       /* Fond principal */
+    --sidebar-bg: #27293d;    /* Fond sidebar */
     --text-white: #ffffff;
     --text-grey: #9a9a9a;
     
-    /* COULEUR VIOLETTE DEMANDÉE */
+    /* IDENTITÉ ARCOPS (VIOLET) */
     --purple-main: #ba54f5;
     --purple-gradient: linear-gradient(to bottom right, #e14eca, #ba54f5);
     --card-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
@@ -15,33 +15,53 @@
     margin: 0;
     padding: 0;
     box-sizing: border-box;
-    font-family: 'Poppins', sans-serif; /* Police moderne */
+    font-family: 'Poppins', sans-serif;
 }
 
 body {
     background-color: var(--bg-dark);
     color: var(--text-white);
     height: 100vh;
-    overflow: hidden; /* Empêche le scroll global */
+    overflow: hidden; /* Empêche le scroll sur tout le corps */
 }
 
-/* --- LAYOUT PRINCIPAL (FLEXBOX) --- */
+/* --- LAYOUT PRINCIPAL (Flexbox) --- */
 .dashboard-container {
     display: flex;
     height: 100%;
     width: 100%;
 }
 
-/* --- 1. CONTENU PRINCIPAL (Gauche) --- */
+/* --- CONTENU PRINCIPAL (Centre) --- */
 .main-content {
-    flex: 1; /* Prend tout l'espace restant */
+    flex: 1;
     padding: 40px;
     display: flex;
     flex-direction: column;
+    overflow-y: auto; /* Scroll uniquement ici */
 }
 
+/* --- GESTION DES ONGLETS (JS) --- */
+.content-section {
+    display: none; /* Caché par défaut */
+}
+
+/* Classe ajoutée par JS pour afficher l'onglet */
+.active-section {
+    display: block;
+    animation: fadeIn 0.4s ease-out;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* --- HEADER --- */
 .header {
-    margin-bottom: 50px;
+    margin-bottom: 30px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    padding-bottom: 20px;
 }
 
 .header h1 {
@@ -50,22 +70,25 @@ body {
 }
 
 .time {
-    color: var(--text-grey);
+    color: var(--purple-main);
     margin-top: 5px;
+    font-weight: 500;
 }
 
-/* --- CARTES STATISTIQUES (Violettes) --- */
+/* --- ONGLET HOME : STATS CARDS --- */
 .stats-container {
     display: flex;
     gap: 30px;
+    flex-wrap: wrap;
 }
 
 .card {
-    background: var(--purple-gradient); /* LE FOND VIOLET EST ICI */
-    width: 250px;
-    height: 120px;
-    border-radius: 12px;
-    padding: 20px;
+    background: var(--purple-gradient);
+    flex: 1;
+    min-width: 250px;
+    height: 140px;
+    border-radius: 15px;
+    padding: 25px;
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -74,11 +97,11 @@ body {
 }
 
 .card:hover {
-    transform: translateY(-5px); /* Petit effet de saut au survol */
+    transform: translateY(-5px);
 }
 
 .icon-wrapper {
-    font-size: 2.5rem;
+    font-size: 3rem;
     opacity: 0.8;
 }
 
@@ -88,76 +111,204 @@ body {
 
 .card-info .number {
     display: block;
-    font-size: 2rem;
+    font-size: 2.2rem;
     font-weight: bold;
 }
 
 .card-info .label {
     font-size: 1rem;
     opacity: 0.9;
+    text-transform: uppercase;
 }
 
-/* --- 2. SIDEBAR (Droite) --- */
+/* --- ONGLET PROJETS : GRILLE --- */
+.projects-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 30px;
+}
+
+.project-card {
+    background-color: var(--sidebar-bg);
+    border-radius: 15px;
+    overflow: hidden;
+    box-shadow: var(--card-shadow);
+    transition: transform 0.3s ease, border-color 0.3s;
+    border: 1px solid transparent;
+}
+
+.project-card:hover {
+    transform: translateY(-5px);
+    border-color: var(--purple-main); /* Bordure violette au survol */
+}
+
+.project-card img {
+    width: 100%;
+    height: 160px;
+    object-fit: cover;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.project-info {
+    padding: 20px;
+}
+
+.project-info h3 {
+    margin-bottom: 10px;
+    font-size: 1.2rem;
+    color: var(--text-white);
+}
+
+.project-info p {
+    color: var(--text-grey);
+    font-size: 0.9rem;
+    margin-bottom: 15px;
+    line-height: 1.4;
+}
+
+.project-date {
+    display: block;
+    font-size: 0.8rem;
+    color: var(--purple-main);
+    font-weight: 600;
+}
+
+.empty-state {
+    color: var(--text-grey);
+    font-style: italic;
+    font-size: 1.1rem;
+}
+
+/* --- ONGLET SETTINGS : FORMULAIRES --- */
+.settings-container {
+    max-width: 600px;
+    background-color: var(--sidebar-bg);
+    padding: 30px;
+    border-radius: 15px;
+    box-shadow: var(--card-shadow);
+}
+
+.settings-card h2 {
+    margin-bottom: 25px;
+    color: var(--purple-main);
+    font-size: 1.5rem;
+}
+
+.form-group {
+    margin-bottom: 20px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 8px;
+    color: var(--text-grey);
+    font-weight: 500;
+}
+
+.form-group input {
+    width: 100%;
+    padding: 12px;
+    background-color: var(--bg-dark);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    color: var(--text-white);
+    font-size: 1rem;
+}
+
+/* --- SIDEBAR (Gauche) --- */
 .sidebar {
-    width: 260px; /* Largeur fixe */
+    width: 260px;
     background-color: var(--sidebar-bg);
     display: flex;
     flex-direction: column;
-    padding: 20px;
-    border-left: 1px solid rgba(255, 255, 255, 0.1); /* Séparation subtile */
+    padding: 30px 20px;
+    border-left: 1px solid rgba(255, 255, 255, 0.05);
     height: 100%;
+    z-index: 10;
 }
 
 .logo {
-    font-size: 1.5rem;
+    font-size: 1.6rem;
     font-weight: bold;
-    margin-bottom: 40px;
+    margin-bottom: 50px;
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 12px;
+    color: var(--text-white);
+    letter-spacing: 1px;
+}
+
+.logo i {
+    color: var(--purple-main);
 }
 
 .user-profile {
     text-align: center;
     margin-bottom: 40px;
-    padding-bottom: 20px;
+    padding-bottom: 25px;
     border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
+/* CORRECTION DE L'AVATAR (IMG) */
 .avatar {
-    width: 80px;
-    height: 80px;
-    background-color: var(--purple-main); /* Cercle violet */
+    width: 90px;
+    height: 90px;
+    object-fit: cover; /* Important pour ne pas déformer l'image */
     border-radius: 50%;
-    margin: 0 auto 10px auto;
-    border: 3px solid #fff;
+    margin: 0 auto 15px auto;
+    border: 3px solid var(--purple-main);
+    display: block;
+    padding: 3px; /* Espace entre l'image et la bordure violette */
+    background-color: var(--bg-dark);
 }
 
+.user-profile h3 {
+    font-size: 1.1rem;
+    font-weight: 500;
+}
+
+/* MENU NAVIGATION */
 .menu {
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 12px;
 }
 
 .menu-item {
     text-decoration: none;
-    color: var(--text-white);
-    padding: 15px;
-    border-radius: 8px;
-    transition: background 0.3s;
+    color: var(--text-grey);
+    padding: 14px 18px;
+    border-radius: 10px;
+    transition: all 0.3s ease;
     display: flex;
     align-items: center;
     gap: 15px;
-}
-
-.menu-item:hover, .menu-item.active {
-    background-color: var(--purple-main); /* Fond violet au survol/actif */
+    font-size: 1rem;
     font-weight: 500;
 }
 
+.menu-item:hover {
+    background-color: rgba(186, 84, 245, 0.1); /* Violet très transparent */
+    color: var(--text-white);
+    transform: translateX(5px);
+}
+
+.menu-item.active {
+    background-color: var(--purple-main);
+    color: white;
+    box-shadow: 0 4px 15px rgba(186, 84, 245, 0.3);
+}
+
+/* Largeur fixe pour les icônes afin d'aligner le texte */
+.menu-item i {
+    width: 24px;
+    text-align: center;
+}
+
 .footer {
-    margin-top: auto; /* Pousse le footer tout en bas */
+    margin-top: auto;
     font-size: 0.8rem;
     color: var(--text-grey);
     text-align: center;
+    opacity: 0.5;
 }

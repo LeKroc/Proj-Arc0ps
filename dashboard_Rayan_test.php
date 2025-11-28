@@ -74,7 +74,7 @@ function getProjectImage($id) {
                 <header class="header">
                     <div class="welcome-section">
                         <h1>Welcome back, <?php echo $currentUser['username']; ?> 👋</h1>
-                        <p class="time">Time: <span id="time-display"><?php echo date('H:i'); ?></span></p>
+                        <p class="time">Time: <span id="time-display">--:--</span></p>
                     </div>
                 </header>
         </div>
@@ -86,8 +86,9 @@ function getProjectImage($id) {
             </div>
 
             <div class="user-profile">
-                <div>
-                    <img src="<?= !empty($currentUser['avatar_url']) ? htmlspecialchars($currentUser['avatar_url']) : 'assets/default_avatar.png' ?>" alt="Avatar" class="avatar">
+                <div class="avatar">
+                    <img src="<?= !empty($currentUser['avatar_url']) ? htmlspecialchars($currentUser['avatar_url']) : 'assets/default_avatar.png' ?>" 
+                    alt="Avatar" class="avatar">
                 </div>
                 <h3><?php echo $currentUser['username']; ?></h3>
             </div>

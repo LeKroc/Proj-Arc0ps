@@ -1,0 +1,349 @@
+/* --- CONFIGURATION GLOBALE --- */
+:root {
+    --bg-dark: #1e1e2f;       /* Fond principal sombre */
+    --sidebar-bg: #27293d;    /* Fond de la sidebar */
+    --text-white: #ffffff;
+    --text-grey: #9a9a9a;
+    
+    /* COULEUR VIOLETTE DEMANDÉE */
+    --purple-main: #ba54f5;
+    --purple-gradient: linear-gradient(to bottom right, #e14eca, #ba54f5);
+    --card-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: 'Poppins', sans-serif; /* Police moderne */
+}
+
+body {
+    background-color: var(--bg-dark);
+    color: var(--text-white);
+    height: 100vh;
+    overflow: hidden; /* Empêche le scroll global */
+}
+
+/* --- LAYOUT PRINCIPAL (FLEXBOX) --- */
+.dashboard-container {
+    display: flex;
+    height: 100%;
+    width: 100%;
+}
+
+/* --- 1. CONTENU PRINCIPAL (Gauche) --- */
+.main-content {
+    flex: 1; /* Prend tout l'espace restant */
+    padding: 40px;
+    display: flex;
+    flex-direction: column;
+}
+
+.header {
+    margin-bottom: 50px;
+}
+
+.header h1 {
+    font-size: 2rem;
+    font-weight: 600;
+}
+
+.time {
+    color: var(--text-grey);
+    margin-top: 5px;
+}
+
+/* --- CARTES STATISTIQUES (Violettes) --- */
+.stats-container {
+    display: flex;
+    gap: 30px;
+}
+
+.card {
+    background: var(--purple-gradient); /* LE FOND VIOLET EST ICI */
+    width: 250px;
+    height: 120px;
+    border-radius: 12px;
+    padding: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    box-shadow: var(--card-shadow);
+    transition: transform 0.3s ease;
+}
+
+.card:hover {
+    transform: translateY(-5px); /* Petit effet de saut au survol */
+}
+
+.icon-wrapper {
+    font-size: 2.5rem;
+    opacity: 0.8;
+}
+
+.card-info {
+    text-align: right;
+}
+
+.card-info .number {
+    display: block;
+    font-size: 2rem;
+    font-weight: bold;
+}
+
+.card-info .label {
+    font-size: 1rem;
+    opacity: 0.9;
+}
+
+/* --- 2. SIDEBAR (Droite) --- */
+.sidebar {
+    width: 260px; /* Largeur fixe */
+    background-color: var(--sidebar-bg);
+    display: flex;
+    flex-direction: column;
+    padding: 20px;
+    border-left: 1px solid rgba(255, 255, 255, 0.1); /* Séparation subtile */
+    height: 100%;
+}
+
+.logo {
+    font-size: 1.5rem;
+    font-weight: bold;
+    margin-bottom: 40px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.user-profile {
+    text-align: center;
+    margin-bottom: 40px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.avatar {
+    width: 80px;
+    height: 80px;
+    background-color: var(--purple-main); /* Cercle violet */
+    border-radius: 50%;
+    margin: 0 auto 10px auto;
+    border: 3px solid #fff;
+}
+
+.menu {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.menu-item {
+    text-decoration: none;
+    color: var(--text-white);
+    padding: 15px;
+    border-radius: 8px;
+    transition: background 0.3s;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.menu-item:hover, .menu-item.active {
+    background-color: var(--purple-main); /* Fond violet au survol/actif */
+    font-weight: 500;
+}
+
+.footer {
+    margin-top: auto; /* Pousse le footer tout en bas */
+    font-size: 0.8rem;
+    color: var(--text-grey);
+    text-align: center;
+
+    
+    /* =======================================================
+   STYLES SPÉCIFIQUES AU DASHBOARD (PREFIX: dashboard-)
+   ======================================================= */
+
+/* 1. RESET DU BODY POUR LE DASHBOARD UNIQUEMENT */
+/* On annule le display flex center du login pour avoir un affichage plein écran */
+body.dashboard-body {
+    display: block !important;
+    overflow: hidden !important; /* Pas de scroll sur le body, mais dans le contenu */
+    background: #0f0f1d;
+}
+
+body.dashboard-body::before {
+    opacity: 0.2; /* On réduit l'intensité de l'animation de fond pour lisibilité */
+}
+
+/* 2. LAYOUT PRINCIPAL */
+.dashboard-wrapper {
+    display: flex;
+    height: 100vh;
+    width: 100%;
+}
+
+/* --- SIDEBAR --- */
+.dashboard-sidebar {
+    width: 250px;
+    background: rgba(33, 33, 59, 0.95);
+    border-right: 1px solid #3a3a5e;
+    display: flex;
+    flex-direction: column;
+    padding: 20px;
+    z-index: 20;
+    box-shadow: 4px 0 15px rgba(0,0,0,0.3);
+}
+
+.dashboard-logo {
+    font-size: 22px;
+    color: #a47ef7;
+    font-weight: bold;
+    margin-bottom: 40px;
+    text-align: center;
+}
+
+.dashboard-profile-box {
+    text-align: center;
+    margin-bottom: 30px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid #3a3a5e;
+}
+
+.dashboard-avatar-circle {
+    width: 70px;
+    height: 70px;
+    border-radius: 50%;
+    background: #2b2b4d;
+    border: 2px solid #a47ef7;
+    margin: 0 auto 10px;
+    overflow: hidden;
+}
+.dashboard-avatar-circle img { width: 100%; height: 100%; object-fit: cover; }
+
+.dashboard-username { margin: 5px 0; color: #fff; font-size: 16px; }
+.dashboard-role { color: #a0a0a0; font-size: 12px; text-transform: uppercase; }
+
+.dashboard-menu { flex: 1; display: flex; flex-direction: column; gap: 10px; }
+
+.dashboard-menu-link {
+    text-decoration: none;
+    color: #c0c0c0;
+    padding: 12px 15px;
+    border-radius: 8px;
+    transition: 0.3s;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.dashboard-menu-link:hover, .dashboard-menu-link.dashboard-active {
+    background: rgba(132, 94, 247, 0.15);
+    color: #a47ef7;
+}
+
+.dashboard-footer { font-size: 11px; color: #555; text-align: center; margin-top: auto; }
+
+/* --- CONTENT --- */
+.dashboard-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden; /* Important pour scroller juste la zone de contenu */
+    position: relative;
+    z-index: 10;
+}
+
+.dashboard-header {
+    padding: 20px 40px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: rgba(15, 15, 29, 0.8);
+    backdrop-filter: blur(5px);
+}
+
+.dashboard-welcome h1 { font-size: 24px; margin: 0; color: #fff; }
+.dashboard-name-highlight { color: #a47ef7; }
+#dashboard-subtitle { margin: 5px 0 0; color: #888; font-size: 14px; }
+
+.dashboard-time-widget {
+    text-align: right;
+    font-family: monospace;
+    color: #a47ef7;
+    background: #21213b;
+    padding: 8px 15px;
+    border-radius: 6px;
+    border: 1px solid #3a3a5e;
+}
+#dashboard-time { font-size: 18px; font-weight: bold; display: block; }
+#dashboard-date { font-size: 12px; color: #aaa; }
+
+/* --- SYSTÈME D'ONGLETS (VISIBILITÉ) --- */
+.dashboard-tab-view {
+    padding: 30px 40px;
+    overflow-y: auto; /* Scroll ici */
+    height: 100%;
+    animation: dashboardFadeIn 0.4s ease;
+}
+
+.dashboard-hidden {
+    display: none !important;
+}
+
+@keyframes dashboardFadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.dashboard-section-title {
+    font-size: 18px;
+    color: #e0e0e0;
+    border-bottom: 1px solid #3a3a5e;
+    padding-bottom: 10px;
+    margin-bottom: 25px;
+    text-align: left; /* Surcharge le h2 centré global */
+}
+
+/* --- GRILLE HOME --- */
+.dashboard-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 20px;
+}
+
+.dashboard-card {
+    background: #21213b;
+    border: 1px solid #3a3a5e;
+    padding: 20px;
+    border-radius: 10px;
+    transition: transform 0.2s;
+}
+.dashboard-card:hover { transform: translateY(-5px); border-color: #a47ef7; }
+
+.dashboard-card-top { display: flex; justify-content: space-between; margin-bottom: 15px; }
+.dashboard-card-top h4 { margin: 0; color: #fff; }
+
+.dashboard-desc { color: #b0b0b0; font-size: 14px; margin-bottom: 20px; line-height: 1.4; }
+
+.dashboard-card-meta { display: flex; flex-direction: column; font-size: 11px; color: #666; gap: 5px; border-top: 1px solid #3a3a5e; padding-top: 10px; }
+
+/* Badges Status */
+.dashboard-badge { padding: 4px 10px; border-radius: 12px; font-size: 10px; font-weight: bold; text-transform: uppercase; }
+.dashboard-status-blue { background: rgba(52, 152, 219, 0.2); color: #3498db; }
+.dashboard-status-yellow { background: rgba(241, 196, 15, 0.2); color: #f1c40f; }
+.dashboard-status-green { background: rgba(46, 204, 113, 0.2); color: #2ecc71; }
+.dashboard-status-gray { background: rgba(128, 128, 128, 0.2); color: #aaa; }
+
+/* --- TABLEAU PROJETS --- */
+.dashboard-table-container { background: #21213b; border-radius: 10px; overflow: hidden; border: 1px solid #3a3a5e; }
+.dashboard-table { width: 100%; border-collapse: collapse; text-align: left; }
+.dashboard-table th, .dashboard-table td { padding: 15px; border-bottom: 1px solid #3a3a5e; color: #ddd; }
+.dashboard-table th { background: #1a1a2e; color: #a47ef7; font-size: 12px; text-transform: uppercase; }
+.dashboard-table tr:hover { background: rgba(255,255,255,0.02); }
+
+/* --- SETTINGS FORM --- */
+.dashboard-form-container { max-width: 500px; background: #21213b; padding: 30px; border-radius: 10px; border: 1px solid #3a3a5e; }
+/* Note: Les inputs profitent du style global existant (input[type="text"]...) */
