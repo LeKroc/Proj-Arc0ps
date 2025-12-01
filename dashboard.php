@@ -9,34 +9,20 @@ foreach ($paths as $p) {
 }
 if (!$db_found) die("❌ Fichier db.php introuvable.");
 
+// --- 2. AUTHENTIFICATION VIA COOKIE ---
 if (!isset($_SESSION['user_id'])) {
-    
     if (isset($_COOKIE['mon_site_auth'])) {
-        
-        // On sépare : Données (Payload) . Signature
         $parts = explode('.', $_COOKIE['mon_site_auth']);
-        
         if (count($parts) === 2) {
             $payload = $parts[0];
             $signature = $parts[1];
-
-            // Vérification de la signature HMAC avec la clé secrète du db.php
-            $checkSignature = hash_hmac('sha256', $payload, SECRET_KEY);
-
-            if (hash_equals($checkSignature, $signature)) {
-                
-                // ON RETIRE LES 4 CARACTÈRES ALÉATOIRES (Suffixe)
-                $cleanBase64 = substr($payload, 0, -4);
-                
-                $decoded = base64_decode($cleanBase64);
-
+            if (hash_equals(hash_hmac('sha256', $payload, SECRET_KEY), $signature)) {
+                $decoded = base64_decode(substr($payload, 0, -4));
                 if (strpos($decoded, '|') !== false) {
                     list($username, $date) = explode('|', $decoded);
-
                     $stmtAuth = $pdo->prepare("SELECT id, username FROM users WHERE username = ?");
                     $stmtAuth->execute([$username]);
                     $userFound = $stmtAuth->fetch(PDO::FETCH_ASSOC);
-
                     if ($userFound) {
                         $_SESSION['user_id'] = $userFound['id'];
                         $_SESSION['username'] = $userFound['username'];
@@ -47,13 +33,57 @@ if (!isset($_SESSION['user_id'])) {
     }
 }
 
+// Redirection si toujours pas connecté
 if (!isset($_SESSION['user_id'])) {
     header('Location: login.php');
     exit;
 }
 
 $userId = $_SESSION['user_id']; 
+$settingsMessage = "";
 
+// --- 3. TRAITEMENT DU FORMULAIRE (UPDATE) ---
+// IMPORTANT : On le fait AVANT de récupérer les infos de l'utilisateur
+// --- 4. TRAITEMENT CREATION PROJET (AVEC IMAGE) ---
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_project'])) {
+    if (isset($pdo)) {
+        // Sécurisation
+        $name = htmlspecialchars($_POST['project_name']);
+        $desc = htmlspecialchars($_POST['project_desc']);
+        $owner = $_SESSION['user_id'] ?? 1;
+        $imagePath = null; 
+
+        // Upload Image Projet
+        if (isset($_FILES['project_image']) && $_FILES['project_image']['error'] === 0) {
+            $allowed = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
+            $fileExt = strtolower(pathinfo($_FILES['project_image']['name'], PATHINFO_EXTENSION));
+
+            if (in_array($fileExt, $allowed) && $_FILES['project_image']['size'] < 5000000) {
+                $uniqueName = 'proj_' . time() . '_' . rand(1000,9999) . '.' . $fileExt;
+                $uploadDir = 'assets/imageProject/';
+                
+                if (!is_dir($uploadDir)) mkdir($uploadDir, 0755, true);
+                $destPath = $uploadDir . $uniqueName;
+                
+                if (move_uploaded_file($_FILES['project_image']['tmp_name'], $destPath)) {
+                    $imagePath = $destPath;
+                }
+            }
+        }
+
+        // Insertion BDD
+        $sql = "INSERT INTO projects (owner_id, title, description, created_at, updated_at, is_pinned, image_url) VALUES (?, ?, ?, NOW(), NOW(), 0, ?)";
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute([$owner, $name, $desc, $imagePath]);
+
+        // Rafraichir la page
+        header("Location: " . $_SERVER['PHP_SELF']);
+        exit;
+    }
+}
+
+// --- 4. RECUPERATION DES DONNEES (SELECT) ---
+// On récupère les données MAINTENANT (donc après la potentielle mise à jour)
 $currentUser = false;
 $pinnedProjects = [];
 $allProjects = [];
@@ -65,12 +95,11 @@ if (isset($pdo)) {
         $stmt->execute([$userId]);
         $currentUser = $stmt->fetch(PDO::FETCH_ASSOC);
 
-        // Projets Épinglés
+        // Projets
         $stmt = $pdo->prepare("SELECT * FROM projects WHERE owner_id = ? AND is_pinned = 1 ORDER BY updated_at DESC");
         $stmt->execute([$userId]);
         $pinnedProjects = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-        // Tous les projets
         $stmt = $pdo->prepare("SELECT * FROM projects WHERE owner_id = ? ORDER BY created_at DESC");
         $stmt->execute([$userId]);
         $allProjects = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -83,6 +112,7 @@ if (!$currentUser) {
    exit;
 }
 
+// Fonctions Helper
 function getProjectImage($id) {
     $seed = ['cyber', 'audit', 'waf', 'irp', 'pentest'][$id % 5] . $id;
     return "https://picsum.photos/seed/{$seed}/400/250"; 
@@ -97,39 +127,67 @@ function get_status_badge_html($status) {
     return "<span class=\"$class\">" . htmlspecialchars($status) . "</span>";
 }
 
-$settingsMessage = "";
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_project'])) {
+    if (isset($pdo)) {
+        // Sécurisation des entrées
+        $name = htmlspecialchars($_POST['project_name']);
+        $desc = htmlspecialchars($_POST['project_desc']);
+        $owner = $_SESSION['user_id'] ?? 1;
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'update_profile') {
-    // 1. Récupération des champs
-    $newUsername = trim($_POST['username']);
-    $newEmail    = trim($_POST['email']);
-    $newBio      = trim($_POST['bio']);
+        // Insertion dans la BDD
+        $sql = "INSERT INTO projects (owner_id, name, description, created_at, updated_at, is_pinned) VALUES (?, ?, ?, NOW(), NOW(), 0)";
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute([$owner, $name, $desc]);
 
-    // 2. Validation basique
-    if (empty($newUsername) || empty($newEmail)) {
-        $settingsMessage = "<div class='alert alert-error'>Le nom et l'email sont obligatoires.</div>";
-    } elseif (!filter_var($newEmail, FILTER_VALIDATE_EMAIL)) {
-        $settingsMessage = "<div class='alert alert-error'>Format d'email invalide.</div>";
-    } else {
-        // 3. Mise à jour en Base de Données
-        try {
-            $sql = "UPDATE users SET username = ?, email = ?, bio = ? WHERE id = ?";
-            $stmt = $pdo->prepare($sql);
-            
-            if ($stmt->execute([$newUsername, $newEmail, $newBio, $userId])) {
-                $settingsMessage = "<div class='alert alert-success'>Profil mis à jour avec succès !</div>";
+        // Rafraichir la page pour afficher le nouveau projet
+        header("Location: " . $_SERVER['PHP_SELF']);
+        exit;
+    }
+}
+
+// --- 4. TRAITEMENT CREATION PROJET (IMAGE UNIQUE) ---
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_project'])) {
+    if (isset($pdo)) {
+        // 1. Sécurisation
+        $title = htmlspecialchars($_POST['project_name']);
+        $desc = htmlspecialchars($_POST['project_desc']);
+        $owner = $_SESSION['user_id'] ?? 1;
+        $imagePath = null; 
+
+        // 2. Gestion de l'Upload
+        if (isset($_FILES['project_image']) && $_FILES['project_image']['error'] === 0) {
+            $allowed = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
+            $fileExt = strtolower(pathinfo($_FILES['project_image']['name'], PATHINFO_EXTENSION));
+
+            if (in_array($fileExt, $allowed) && $_FILES['project_image']['size'] < 5000000) {
                 
-                // 4. Mettre à jour les variables actuelles pour affichage immédiat
-                $_SESSION['username']    = $newUsername; // Important pour le "Welcome back"
-                $currentUser['username'] = $newUsername;
-                $currentUser['email']    = $newEmail;
-                $currentUser['bio']      = $newBio;
-            } else {
-                $settingsMessage = "<div class='alert alert-error'>Erreur lors de la mise à jour.</div>";
+                // GÉNÉRATION D'UN ID UNIQUE (ex: proj_654a123bc.jpg)
+                // uniqid() génère un identifiant unique basé sur l'heure exacte à la microseconde
+                $uniqueName = uniqid('proj_') . '.' . $fileExt;
+                
+                $uploadDir = 'assets/imageProject/';
+                
+                // Création du dossier si inexistant
+                if (!is_dir($uploadDir)) mkdir($uploadDir, 0755, true);
+                
+                $destPath = $uploadDir . $uniqueName;
+                
+                // Si l'upload fonctionne, on garde le chemin pour la DB
+                if (move_uploaded_file($_FILES['project_image']['tmp_name'], $destPath)) {
+                    $imagePath = $destPath;
+                }
             }
-        } catch (PDOException $e) {
-            $settingsMessage = "<div class='alert alert-error'>Erreur SQL : " . htmlspecialchars($e->getMessage()) . "</div>";
         }
+
+        // 3. Insertion dans la BDD
+        // On insère tout d'un coup : Titre, Description, et le Chemin de l'image
+        $sql = "INSERT INTO projects (owner_id, title, description, created_at, updated_at, is_pinned, image_url) VALUES (?, ?, ?, NOW(), NOW(), 0, ?)";
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute([$owner, $title, $desc, $imagePath]);
+
+        // Rafraichir la page
+        header("Location: " . $_SERVER['PHP_SELF']);
+        exit;
     }
 }
 ?>
@@ -176,110 +234,147 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                 </div>
             </div>
 
-            <div id="tab-projects" class="content-section">
-                <header class="header">
-                    <h1><i class="fas fa-box"></i> My Projects</h1>
-                </header>
+        <div id="tab-projects" class="content-section">
+            <header class="header header-projects">
+                <h1><i class="fas fa-box"></i> My Projects</h1>
 
+                <button class="btn-add-project" onclick="openModal()">
+                    <i class="fas fa-plus"></i> Add Project
+                </button>
+                <div id="modal-add-project" class="modal">
+                <div class="modal-content">
+                    <span class="close-modal" onclick="closeModal()">&times;</span>
+                    <h2>Nouveau Projet</h2>
+
+                    <form method="POST" action="">
+                        <input type="hidden" name="create_project" value="1">
+
+                        <div class="form-group">
+                            <label>Nom du projet</label>
+                            <input type="text" name="project_name" required placeholder="Ex: Migration Serveur">
+                        </div>
+
+                        <div class="form-group">
+                            <label>Description</label>
+                            <textarea name="project_desc" rows="4" placeholder="Détails du projet..."></textarea>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Image de couverture (Optionnel)</label>
+                            <div class="file-input-wrapper">
+                                <input type="file" name="project_image" id="proj_img" accept="image/*">
+                                <label for="proj_img" class="file-label">
+                                    <i class="fas fa-image"></i> Choisir une image...
+                                </label>
+                            </div>
+                        </div>
+
+                        <button type="submit" class="btn-submit">Créer le projet</button>
+                    </form>
+                </div>
+            </header>
                 <div class="projects-grid">
-                    <?php if (!empty($allProjects)): ?>
-                        <?php foreach ($allProjects as $project): ?>
-                            <?php 
-                                // On extrait l'ID
-                                $id = $project['id'] ?? 0;
-                                
-                                // --- LOGIQUE DE SIMULATION CYBERSÉCURITÉ BASÉE SUR L'ID ---
-                                $progression = (int)($project['progression'] ?? rand(10, 90)); // Fallback simulation
-                                
-                                $title = "";
-                                $description = "";
+                <?php if (!empty($allProjects)): ?>
+                    <?php foreach ($allProjects as $project): ?>
+                        <?php 
+                            // 1. Récupération des données REELLES de la DB
+                            $id = $project['id'];
+                            $title = htmlspecialchars($project['title']);
+                            $description = htmlspecialchars($project['description']);
+                            $status = htmlspecialchars($project['status']);
+                            $progression = (int)$project['progression'];
+                            $created_at = date('d/m/Y', strtotime($project['created_at']));
 
-                                if ($id % 4 == 1) {
-                                    $title = "Audit Code Source (SQLi/XSS)";
-                                    $description = "Vérification des vulnérabilités critiques OWASP Top 10 sur le code.";
-                                    $progression = 45;
-                                    $status = 'En Cours';
-                                } else if ($id % 4 == 2) {
-                                    $title = "Mise en place d'un WAF (Web App Firewall)";
-                                    $description = "Déploiement et configuration du pare-feu applicatif frontal.";
-                                    $progression = 95;
-                                    $status = 'Terminé';
-                                } else if ($id % 4 == 3) {
-                                    $title = "Plan de Réponse à Incident (IRP)";
-                                    $description = "Création de la documentation et des procédures d'urgence.";
-                                    $progression = 30;
-                                    $status = 'En Attente';
-                                } else {
-                                    $title = "Pentest Externe (Phase 1)";
-                                    $description = "Test d'intrusion externe sur l'infrastructure cloud.";
-                                    $progression = 15;
-                                    $status = 'Bloqué';
-                                }
-
-                                $status_html = get_status_badge_html($status);
-                                $description_final = htmlspecialchars(substr($description ?? 'Pas de description.', 0, 50));
-                                $created_at = date('d/m/Y', strtotime($project['created_at'] ?? 'now'));
-                            ?>
+                            // 2. Gestion de l'IMAGE
+                            // Par défaut : Image aléatoire basée sur l'ID
+                            $coverImage = getProjectImage($id); 
                             
-                            <a href="avancement.php?id=<?= $id ?>" class="project-card">
-                                <img src="<?= getProjectImage($id) ?>" alt="Cover">
-                                <div class="project-info">
-                                    <h3><?= $title ?></h3>
-                                    <p class="project-status">Statut : <?= $status_html ?></p>
-                                    <p><?= $description_final ?>...</p>
-                                    
-                                    <div class="progress-bar-small-container">
-                                        <small>Progression: <?= $progression ?>%</small>
-                                        <div class="progress-bar-small">
-                                            <div class="progress-fill-small" style="width: <?= $progression ?>%;"></div>
-                                        </div>
-                                    </div>
-                                    <span class="project-date">Créé le : <?= $created_at ?></span>
-                                </div>
-                            </a>
-                        <?php endforeach; ?>
-                    <?php else: ?>
-                        <p class="empty-state">Aucun projet trouvé.</p>
-                    <?php endif; ?>
-                </div>
-            </div>
+                            // Si une image perso existe dans la DB et que le fichier est bien sur le serveur
+                            if (!empty($project['image_url']) && file_exists($project['image_url'])) {
+                                $coverImage = htmlspecialchars($project['image_url']); 
+                            }
 
-            <div id="tab-settings" class="content-section">
-                <header class="header">
-                    <h1><i class="fas fa-cog"></i> Settings</h1>
-                </header>
-
-                <div class="settings-container">
-                    <div class="settings-card">
-                        <h2>Mon Profil</h2>
+                            // 3. Génération du badge statut
+                            $status_html = get_status_badge_html($status);
+                            
+                            // Petit nettoyage de la description si elle est vide
+                            if (empty($description)) { $description = "Aucune description."; }
+                            $description_short = substr($description, 0, 60) . (strlen($description) > 60 ? "..." : "");
+                        ?>
                         
-                        <?php if (!empty($settingsMessage)) echo $settingsMessage; ?>
-
-                        <form class="settings-form" method="POST" action="">
-                            <input type="hidden" name="action" value="update_profile">
-
-                            <div class="form-group">
-                                <label>Nom d'utilisateur</label>
-                                <input type="text" name="username" value="<?php echo htmlspecialchars($currentUser['username']); ?>" required>
-                            </div>
+                        <a href="avancement.php?id=<?= $id ?>" class="project-card">
+                            <img src="<?= $coverImage ?>" alt="Cover">
                             
-                            <div class="form-group">
-                                <label>Email</label>
-                                <input type="email" name="email" value="<?php echo htmlspecialchars($currentUser['email']); ?>" required>
+                            <div class="project-info">
+                                <h3><?= $title ?></h3>
+                                <p class="project-status">Statut : <?= $status_html ?></p>
+                                <p><?= $description_short ?></p>
+                                
+                                <div class="progress-bar-small-container">
+                                    <small>Progression: <?= $progression ?>%</small>
+                                    <div class="progress-bar-small">
+                                        <div class="progress-fill-small" style="width: <?= $progression ?>%;"></div>
+                                    </div>
+                                </div>
+                                <br>
+                                <span class="project-date">Créé le : <?= $created_at ?></span>
                             </div>
-                            
-                            <div class="form-group">
-                                <label>Bio (Visible sur le profil)</label>
-                                <textarea name="bio" rows="4"><?php echo htmlspecialchars($currentUser['bio'] ?? ''); ?></textarea>
-                            </div>
+                        </a>
+                    <?php endforeach; ?>
+                <?php else: ?>
+                    <p class="empty-state">Aucun projet trouvé.</p>
+                <?php endif; ?>
+            </div>
+        </div>
 
-                            <button type="submit" class="btn-save">
-                                <i class="fas fa-save"></i> Sauvegarder les modifications
-                            </button>
-                        </form>
-                    </div>
+        <div id="tab-settings" class="content-section">
+            <header class="header">
+                <h1><i class="fas fa-cog"></i> Settings</h1>
+            </header>
+            <div class="settings-container">
+                <div class="settings-card">
+                    <h2>Mon Profil</h2>
+                    
+                    <?php if (!empty($settingsMessage)) echo $settingsMessage; ?>
+
+                    <form class="settings-form" method="POST" action="" enctype="multipart/form-data">
+                        <input type="hidden" name="action" value="update_profile">
+
+                        <div class="form-group">
+                            <label>Photo de profil</label>
+                            <div class="file-input-wrapper">
+                                <input type="file" name="avatar" id="avatar" accept="image/png, image/jpeg, image/gif">
+                                <label for="avatar" class="file-label">
+                                    <i class="fas fa-upload"></i> Choisir une image...
+                                </label>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Nom d'utilisateur</label>
+                            <input type="text" name="username" value="<?php echo htmlspecialchars($currentUser['username']); ?>" required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>Email</label>
+                            <input type="email" name="email" value="<?php echo htmlspecialchars($currentUser['email']); ?>" required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>Bio</label>
+                            <textarea name="bio" rows="4"><?php echo htmlspecialchars($currentUser['bio'] ?? ''); ?></textarea>
+                        </div>
+
+                        <button type="submit" class="btn-save">
+                            <i class="fas fa-save"></i> Sauvegarder les modifications
+                        </button>
+                    </form>
                 </div>
             </div>
+        </div>
+            
+            
+            
 
         </main>
 
@@ -290,7 +385,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 
             <div class="user-profile">
                 <div>
-                    <img src="<?= !empty($currentUser['avatar_url']) ? htmlspecialchars($currentUser['avatar_url']) : 'assets/default_avatar.png' ?>" alt="Avatar" class="avatar">
+                    <?php 
+                        // LOGIQUE D'AFFICHAGE DE L'IMAGE
+                        // 1. On regarde si l'utilisateur a une URL dans la DB
+                        $avatarPath = !empty($currentUser['avatar_url']) ? $currentUser['avatar_url'] : 'assets/PhotoProfile/default_avatar.png';
+                        
+                        // 2. Si le fichier n'existe pas physiquement (supprimé par erreur), on met le défaut
+                        if (!file_exists($avatarPath)) {
+                            $avatarPath = 'assets/PhotoProfile/default_avatar.png';
+                        }
+                        
+                        // 3. Astuce anti-cache : on ajoute ?v=time() pour forcer le navigateur à recharger l'image si on vient de la changer
+                        $displayPath = $avatarPath . "?v=" . time();
+                    ?>
+                    <img src="<?= htmlspecialchars($displayPath) ?>" alt="Avatar" class="avatar">
                 </div>
                 <h3><?php echo htmlspecialchars($currentUser['username']); ?></h3>
             </div>
@@ -344,6 +452,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     </div>
 
     <script>
+        function openModal() {
+            document.getElementById('modal-add-project').style.display = 'block';
+        }
+
+        function closeModal() {
+            document.getElementById('modal-add-project').style.display = 'none';
+        }
+
+        // Fermer si on clique sur le fond gris
+        window.onclick = function(event) {
+            const modal = document.getElementById('modal-add-project');
+            if (event.target == modal) {
+                modal.style.display = "none";
+            }
+        }
 
         function showPage(event, pageId) {
             event.preventDefault();
