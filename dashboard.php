@@ -96,6 +96,42 @@ function get_status_badge_html($status) {
     else $class .= ' status-error'; 
     return "<span class=\"$class\">" . htmlspecialchars($status) . "</span>";
 }
+
+$settingsMessage = "";
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'update_profile') {
+    // 1. Récupération des champs
+    $newUsername = trim($_POST['username']);
+    $newEmail    = trim($_POST['email']);
+    $newBio      = trim($_POST['bio']);
+
+    // 2. Validation basique
+    if (empty($newUsername) || empty($newEmail)) {
+        $settingsMessage = "<div class='alert alert-error'>Le nom et l'email sont obligatoires.</div>";
+    } elseif (!filter_var($newEmail, FILTER_VALIDATE_EMAIL)) {
+        $settingsMessage = "<div class='alert alert-error'>Format d'email invalide.</div>";
+    } else {
+        // 3. Mise à jour en Base de Données
+        try {
+            $sql = "UPDATE users SET username = ?, email = ?, bio = ? WHERE id = ?";
+            $stmt = $pdo->prepare($sql);
+            
+            if ($stmt->execute([$newUsername, $newEmail, $newBio, $userId])) {
+                $settingsMessage = "<div class='alert alert-success'>Profil mis à jour avec succès !</div>";
+                
+                // 4. Mettre à jour les variables actuelles pour affichage immédiat
+                $_SESSION['username']    = $newUsername; // Important pour le "Welcome back"
+                $currentUser['username'] = $newUsername;
+                $currentUser['email']    = $newEmail;
+                $currentUser['bio']      = $newBio;
+            } else {
+                $settingsMessage = "<div class='alert alert-error'>Erreur lors de la mise à jour.</div>";
+            }
+        } catch (PDOException $e) {
+            $settingsMessage = "<div class='alert alert-error'>Erreur SQL : " . htmlspecialchars($e->getMessage()) . "</div>";
+        }
+    }
+}
 ?>
 
 <!DOCTYPE html>
@@ -216,19 +252,30 @@ function get_status_badge_html($status) {
                 <div class="settings-container">
                     <div class="settings-card">
                         <h2>Mon Profil</h2>
-                        <form class="settings-form">
+                        
+                        <?php if (!empty($settingsMessage)) echo $settingsMessage; ?>
+
+                        <form class="settings-form" method="POST" action="">
+                            <input type="hidden" name="action" value="update_profile">
+
                             <div class="form-group">
                                 <label>Nom d'utilisateur</label>
-                                <input type="text" value="<?php echo htmlspecialchars($currentUser['username']); ?>" disabled>
+                                <input type="text" name="username" value="<?php echo htmlspecialchars($currentUser['username']); ?>" required>
                             </div>
+                            
                             <div class="form-group">
                                 <label>Email</label>
-                                <input type="email" value="<?php echo htmlspecialchars($currentUser['email']); ?>" disabled>
+                                <input type="email" name="email" value="<?php echo htmlspecialchars($currentUser['email']); ?>" required>
                             </div>
+                            
                             <div class="form-group">
-                                <label>Bio</label>
-                                <textarea disabled><?php echo htmlspecialchars($currentUser['bio'] ?? ''); ?></textarea>
+                                <label>Bio (Visible sur le profil)</label>
+                                <textarea name="bio" rows="4"><?php echo htmlspecialchars($currentUser['bio'] ?? ''); ?></textarea>
                             </div>
+
+                            <button type="submit" class="btn-save">
+                                <i class="fas fa-save"></i> Sauvegarder les modifications
+                            </button>
                         </form>
                     </div>
                 </div>
