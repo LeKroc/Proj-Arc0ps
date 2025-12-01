@@ -1,4 +1,5 @@
 <?php
+// On inclut la config (qui contient $pdo et SECRET_KEY)
 $paths = ['config/db.php', 'db.php', '../config/db.php'];
 $db_found = false;
 foreach ($paths as $p) {
@@ -14,14 +15,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $identifier = $_POST['identifier']; 
         $pass       = $_POST['password'];
 
-        // CORRECTION ICI : Utilisation de marqueurs distincts
         $sql = "SELECT id, username, password 
                 FROM users 
                 WHERE email = :email_val OR username = :user_val";
         
         $stmt = $pdo->prepare($sql);
         
-        // CORRECTION LIGNE 30 : On lie les deux marqueurs à la même variable $identifier
         $stmt->execute([
             'email_val' => $identifier, 
             'user_val'  => $identifier
@@ -30,17 +29,52 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
         if ($user && password_verify($pass, $user['password'])) {
+
             session_start();
+    
+            // On force le serveur à créer un nouvel ID de session vierge
+            session_regenerate_id(true); 
+
             $_SESSION['user_id']  = $user['id'];
             $_SESSION['username'] = $user['username'];
+
+            // 2. Création du Cookie Personnalisé
+            // A. On prépare les données : Username + Date
+            $infoBrute = $user['username'] . '|' . date('Y-m-d H:i:s');
+            
+            // B. Encodage Base64
+            $base64 = base64_encode($infoBrute);
+            
+            // C. Ajout des 4 caractères aléatoires (suffixe)
+            $randomSuffix = bin2hex(random_bytes(2));
+            
+            // D. Le contenu final du cookie avant signature (Base64 + Random)
+            $payload = $base64 . $randomSuffix;
+            
+            // E. Signature HMAC (Sécurité)
+            $signature = hash_hmac('sha256', $payload, SECRET_KEY);
+            
+            // F. Envoi du cookie : Payload + Point + Signature
+            setcookie(
+                'mon_site_auth', 
+                $payload . '.' . $signature, 
+                time() + 3600, // Expire dans 1h
+                '/',           // Valide sur tout le site
+                '',            // Domaine (laisser vide par défaut)
+                false,         // Secure (mettre true si tu as HTTPS)
+                true           // HttpOnly (Javascript ne peut pas le lire, sécurité XSS)
+            );
+
+            // 3. Redirection
             header('Location: dashboard.php');
             exit;
+
         } else {
             $message = "❌ Erreur : Identifiant ou mot de passe incorrect.";
         }
     }
 }
-?> 
+?>
 
 <!DOCTYPE html>
 <html lang="fr">

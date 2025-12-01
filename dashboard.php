@@ -1,7 +1,7 @@
 <?php
 session_start();
 
-// --- 1. CONNEXION ---
+// --- 1. CONNEXION DB ---
 $paths = ['config/db.php', 'db.php', '../config/db.php'];
 $db_found = false;
 foreach ($paths as $p) {
@@ -9,8 +9,49 @@ foreach ($paths as $p) {
 }
 if (!$db_found) die("❌ Fichier db.php introuvable.");
 
-// --- 2. DATA ---
-$userId = $_SESSION['user_id'] ?? 1; 
+// --- 2. AUTHENTIFICATION ---
+if (!isset($_SESSION['user_id'])) {
+    
+    if (isset($_COOKIE['mon_site_auth'])) {
+        
+        $parts = explode('.', $_COOKIE['mon_site_auth']);
+        
+        if (count($parts) === 2) {
+            $payload = $parts[0];
+            $signature = $parts[1];
+
+            $checkSignature = hash_hmac('sha256', $payload, SECRET_KEY);
+
+            if (hash_equals($checkSignature, $signature)) {
+                
+                // ON RETIRE LES 4 CARACTÈRES ALÉATOIRES
+                $cleanBase64 = substr($payload, 0, -4);
+                
+                $decoded = base64_decode($cleanBase64);
+
+                if (strpos($decoded, '|') !== false) {
+                    list($username, $date) = explode('|', $decoded);
+
+                    $stmtAuth = $pdo->prepare("SELECT id, username FROM users WHERE username = ?");
+                    $stmtAuth->execute([$username]);
+                    $userFound = $stmtAuth->fetch(PDO::FETCH_ASSOC);
+
+                    if ($userFound) {
+                        $_SESSION['user_id'] = $userFound['id'];
+                        $_SESSION['username'] = $userFound['username'];
+                    }
+                }
+            }
+        }
+    }
+}
+
+if (!isset($_SESSION['user_id'])) {
+    header('Location: login.php');
+    exit;
+}
+
+$userId = $_SESSION['user_id']; 
 
 $currentUser = false;
 $pinnedProjects = [];
@@ -18,17 +59,14 @@ $allProjects = [];
 
 if (isset($pdo)) {
     try {
-        // User
         $stmt = $pdo->prepare("SELECT * FROM users WHERE id = ?");
         $stmt->execute([$userId]);
         $currentUser = $stmt->fetch(PDO::FETCH_ASSOC);
 
-        // Projets Épinglés
         $stmt = $pdo->prepare("SELECT * FROM projects WHERE owner_id = ? AND is_pinned = 1 ORDER BY updated_at DESC");
         $stmt->execute([$userId]);
         $pinnedProjects = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-        // Tous les projets
         $stmt = $pdo->prepare("SELECT * FROM projects WHERE owner_id = ? ORDER BY created_at DESC");
         $stmt->execute([$userId]);
         $allProjects = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -36,23 +74,16 @@ if (isset($pdo)) {
     } catch (PDOException $e) { /* Silent fail */ }
 }
 
-// Fallback User
 if (!$currentUser) {
-    $currentUser = [
-        'username' => 'Admin System',
-        'email' => 'admin@arcops.net',
-        'role' => 'admin',
-        'avatar_url' => 'assets/default_avatar.png',
-        'bio' => 'Compte de secours',
-        'theme' => 'dark'
-    ];
+   header('Location: logout.php');
+   exit;
 }
 
-// Helper Image
 function getProjectImage($id) {
     return "https://picsum.photos/seed/arcops{$id}/400/250"; 
 }
 ?>
+
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -64,15 +95,14 @@ function getProjectImage($id) {
     <link rel="stylesheet" href="style-dashboard.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
-    <style>
-        /* CSS INTERNE POUR GERER L'AFFICHAGE DES ONGLETS */
+    <style> /* Tout est caché par défaut */
         .content-section {
-            display: none; /* Tout est caché par défaut */
+            display: none;
             animation: fadeIn 0.4s ease-out;
         }
-        
+        /* Seul l'actif est visible */
         .active-section {
-            display: block; /* Seul l'actif est visible */
+            display: block; 
         }
 
         @keyframes fadeIn {
@@ -205,41 +235,35 @@ function getProjectImage($id) {
             </nav>
     
             <div class="footer">
-                © ShopMe Corporation
+                © Λrc0ps Corporation
             </div>
         </aside>
 
     </div>
 
     <script>
-        // --- LOGIQUE DE NAVIGATION ---
         function showPage(event, pageId) {
-            event.preventDefault(); // Empêche le lien de remonter en haut de page
+            event.preventDefault();
 
-            // 1. Cacher toutes les sections
             const allPages = document.querySelectorAll('.content-section');
             allPages.forEach(page => {
-                page.style.display = 'none'; // Cache via CSS
+                page.style.display = 'none';
                 page.classList.remove('active-section');
             });
 
-            // 2. Afficher la section demandée (home, projects ou settings)
             const target = document.getElementById('tab-' + pageId);
             if (target) {
                 target.style.display = 'block';
-                // Petit délai pour permettre l'animation CSS si besoin
+
                 setTimeout(() => target.classList.add('active-section'), 10);
             }
 
-            // 3. Mettre à jour le bouton actif dans le menu
             const allMenus = document.querySelectorAll('.menu-item');
             allMenus.forEach(menu => menu.classList.remove('active'));
             
-            // "currentTarget" est l'élément <a> sur lequel on a cliqué
             event.currentTarget.classList.add('active');
         }
         
-        // --- HORLOGE ---
         function updateTime() {
             const now = new Date();
             const timeString = now.toLocaleTimeString('fr-FR', {hour: '2-digit', minute:'2-digit'});
