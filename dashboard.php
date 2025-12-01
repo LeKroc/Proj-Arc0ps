@@ -9,22 +9,23 @@ foreach ($paths as $p) {
 }
 if (!$db_found) die("❌ Fichier db.php introuvable.");
 
-// --- 2. AUTHENTIFICATION ---
 if (!isset($_SESSION['user_id'])) {
     
     if (isset($_COOKIE['mon_site_auth'])) {
         
+        // On sépare : Données (Payload) . Signature
         $parts = explode('.', $_COOKIE['mon_site_auth']);
         
         if (count($parts) === 2) {
             $payload = $parts[0];
             $signature = $parts[1];
 
+            // Vérification de la signature HMAC avec la clé secrète du db.php
             $checkSignature = hash_hmac('sha256', $payload, SECRET_KEY);
 
             if (hash_equals($checkSignature, $signature)) {
                 
-                // ON RETIRE LES 4 CARACTÈRES ALÉATOIRES
+                // ON RETIRE LES 4 CARACTÈRES ALÉATOIRES (Suffixe)
                 $cleanBase64 = substr($payload, 0, -4);
                 
                 $decoded = base64_decode($cleanBase64);
@@ -59,14 +60,17 @@ $allProjects = [];
 
 if (isset($pdo)) {
     try {
+        // User
         $stmt = $pdo->prepare("SELECT * FROM users WHERE id = ?");
         $stmt->execute([$userId]);
         $currentUser = $stmt->fetch(PDO::FETCH_ASSOC);
 
+        // Projets Épinglés
         $stmt = $pdo->prepare("SELECT * FROM projects WHERE owner_id = ? AND is_pinned = 1 ORDER BY updated_at DESC");
         $stmt->execute([$userId]);
         $pinnedProjects = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
+        // Tous les projets
         $stmt = $pdo->prepare("SELECT * FROM projects WHERE owner_id = ? ORDER BY created_at DESC");
         $stmt->execute([$userId]);
         $allProjects = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -80,7 +84,17 @@ if (!$currentUser) {
 }
 
 function getProjectImage($id) {
-    return "https://picsum.photos/seed/arcops{$id}/400/250"; 
+    $seed = ['cyber', 'audit', 'waf', 'irp', 'pentest'][$id % 5] . $id;
+    return "https://picsum.photos/seed/{$seed}/400/250"; 
+}
+
+function get_status_badge_html($status) {
+    $class = 'status-badge';
+    if ($status == 'Terminé') $class .= ' status-success';
+    else if ($status == 'En Cours') $class .= ' status-primary';
+    else if ($status == 'En Attente') $class .= ' status-warning';
+    else $class .= ' status-error'; 
+    return "<span class=\"$class\">" . htmlspecialchars($status) . "</span>";
 }
 ?>
 
@@ -94,22 +108,6 @@ function getProjectImage($id) {
     <link rel="icon" type="image/x-icon" href="assets/logo_Arc0ps.ico">
     <link rel="stylesheet" href="style-dashboard.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    
-    <style> /* Tout est caché par défaut */
-        .content-section {
-            display: none;
-            animation: fadeIn 0.4s ease-out;
-        }
-        /* Seul l'actif est visible */
-        .active-section {
-            display: block; 
-        }
-
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-    </style>
 </head>
 <body>
     <div class="dashboard-container">
@@ -150,14 +148,59 @@ function getProjectImage($id) {
                 <div class="projects-grid">
                     <?php if (!empty($allProjects)): ?>
                         <?php foreach ($allProjects as $project): ?>
-                            <div class="project-card">
-                                <img src="<?= getProjectImage($project['id']) ?>" alt="Cover">
+                            <?php 
+                                // On extrait l'ID
+                                $id = $project['id'] ?? 0;
+                                
+                                // --- LOGIQUE DE SIMULATION CYBERSÉCURITÉ BASÉE SUR L'ID ---
+                                $progression = (int)($project['progression'] ?? rand(10, 90)); // Fallback simulation
+                                
+                                $title = "";
+                                $description = "";
+
+                                if ($id % 4 == 1) {
+                                    $title = "Audit Code Source (SQLi/XSS)";
+                                    $description = "Vérification des vulnérabilités critiques OWASP Top 10 sur le code.";
+                                    $progression = 45;
+                                    $status = 'En Cours';
+                                } else if ($id % 4 == 2) {
+                                    $title = "Mise en place d'un WAF (Web App Firewall)";
+                                    $description = "Déploiement et configuration du pare-feu applicatif frontal.";
+                                    $progression = 95;
+                                    $status = 'Terminé';
+                                } else if ($id % 4 == 3) {
+                                    $title = "Plan de Réponse à Incident (IRP)";
+                                    $description = "Création de la documentation et des procédures d'urgence.";
+                                    $progression = 30;
+                                    $status = 'En Attente';
+                                } else {
+                                    $title = "Pentest Externe (Phase 1)";
+                                    $description = "Test d'intrusion externe sur l'infrastructure cloud.";
+                                    $progression = 15;
+                                    $status = 'Bloqué';
+                                }
+
+                                $status_html = get_status_badge_html($status);
+                                $description_final = htmlspecialchars(substr($description ?? 'Pas de description.', 0, 50));
+                                $created_at = date('d/m/Y', strtotime($project['created_at'] ?? 'now'));
+                            ?>
+                            
+                            <a href="avancement.php?id=<?= $id ?>" class="project-card">
+                                <img src="<?= getProjectImage($id) ?>" alt="Cover">
                                 <div class="project-info">
-                                    <h3><?= htmlspecialchars($project['name']) ?></h3>
-                                    <p><?= htmlspecialchars(substr($project['description'] ?? '', 0, 50)) ?>...</p>
-                                    <span class="project-date"><?= date('d/m/Y', strtotime($project['created_at'])) ?></span>
+                                    <h3><?= $title ?></h3>
+                                    <p class="project-status">Statut : <?= $status_html ?></p>
+                                    <p><?= $description_final ?>...</p>
+                                    
+                                    <div class="progress-bar-small-container">
+                                        <small>Progression: <?= $progression ?>%</small>
+                                        <div class="progress-bar-small">
+                                            <div class="progress-fill-small" style="width: <?= $progression ?>%;"></div>
+                                        </div>
+                                    </div>
+                                    <span class="project-date">Créé le : <?= $created_at ?></span>
                                 </div>
-                            </div>
+                            </a>
                         <?php endforeach; ?>
                     <?php else: ?>
                         <p class="empty-state">Aucun projet trouvé.</p>
@@ -233,7 +276,19 @@ function getProjectImage($id) {
                     Settings
                 </a>
             </nav>
-    
+            
+
+            <div class="logout-container">
+                <a href="logout.php" class="menu-item btn-logout">
+                    <i class="btn-logout">
+                         <svg class="w-6 h-6" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24">
+                            <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 12H4m12 0-4 4m4-4-4-4m3-4h2a3 3 0 0 1 3 3v10a3 3 0 0 1-3 3h-2"/>
+                        </svg>
+                    </i> 
+                    Disconnect 
+                </a>
+            </div>
+            <br>
             <div class="footer">
                 © Λrc0ps Corporation
             </div>
@@ -242,6 +297,7 @@ function getProjectImage($id) {
     </div>
 
     <script>
+
         function showPage(event, pageId) {
             event.preventDefault();
 
@@ -254,20 +310,27 @@ function getProjectImage($id) {
             const target = document.getElementById('tab-' + pageId);
             if (target) {
                 target.style.display = 'block';
-
                 setTimeout(() => target.classList.add('active-section'), 10);
             }
 
             const allMenus = document.querySelectorAll('.menu-item');
-            allMenus.forEach(menu => menu.classList.remove('active'));
+
+            allMenus.forEach(menu => {
+                if(!menu.classList.contains('btn-logout')) {
+                    menu.classList.remove('active');
+                }
+            });
             
-            event.currentTarget.classList.add('active');
+            if(!event.currentTarget.classList.contains('btn-logout')) {
+                event.currentTarget.classList.add('active');
+            }
         }
         
         function updateTime() {
             const now = new Date();
             const timeString = now.toLocaleTimeString('fr-FR', {hour: '2-digit', minute:'2-digit'});
-            document.getElementById('time-display').textContent = timeString;
+            const timeDisplay = document.getElementById('time-display');
+            if(timeDisplay) timeDisplay.textContent = timeString;
         }
         setInterval(updateTime, 1000);
         updateTime();

@@ -312,3 +312,39 @@ body {
     text-align: center;
     opacity: 0.5;
 }
+
+
+/* bouton logout */
+sidebar {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between; 
+}
+.menu {
+    flex-grow: 1;
+}
+
+.logout-container {
+    padding-top: 20px;
+    border-top: 1px solid rgba(255,255,255,0.1);
+}
+.btn-logout {
+    color: #ff6b6b !important;
+}
+.btn-logout:hover {
+    background-color: rgba(255, 107, 107, 0.1) !important;
+} 
+
+.content-section {
+    display: none; 
+    animation: fadeIn 0.4s ease-out;
+}
+
+.active-section {
+    display: block; 
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
