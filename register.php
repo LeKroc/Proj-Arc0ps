@@ -1,4 +1,10 @@
 <?php
+// Inclusion des fonctions de sécurité
+require_once 'functions.php';
+
+// Démarrage sécurisé de la session
+secure_session_start();
+
 // Inclure le fichier de connexion qui initialise $pdo
 $paths = ['config/db.php', 'db.php', '../config/db.php'];
 $db_found = false;
@@ -14,9 +20,12 @@ $errors = []; // Initialisation du tableau d'erreurs
 // 1. Vérification que le formulaire a été soumis
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
+    // Protection CSRF
+    csrf_protect();
+
     // --- 2. Récupération des données ---
-    $username = trim($_POST['username']);
-    $email = trim($_POST['email']);
+    $username = clean_input(trim($_POST['username']));
+    $email = clean_input(trim($_POST['email']));
     $password = $_POST['password'];
     $confirm_password = $_POST['confirm-password'];
 
@@ -60,8 +69,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             if ($e->getCode() == 23000) { 
                 $errors[] = "Ce nom d'utilisateur ou e-mail est déjà utilisé.";
             } else {
-                // Version détaillée pour le débogage:
-                $errors[] = "Erreur PDO DÉTAILLÉE : " . $e->getMessage();
+                // Version sécurisée (Production) :
+                $errors[] = "Erreur lors de l'inscription. Veuillez réessayer.";
+                log_security_event("Erreur d'inscription PDO : " . $e->getMessage());
             }
         }
     }
@@ -93,15 +103,16 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         <?php endif; ?>
 
         <form action="<?php echo htmlspecialchars($_SERVER["PHP_SELF"]); ?>" method="POST">
+            <?= csrf_field() ?>
             
             <div class="form-group">
                 <label for="username">Nom d'utilisateur</label>
-                <input type="text" id="username" name="username" required value="<?= isset($username) ? htmlspecialchars($username) : '' ?>">
+                <input type="text" id="username" name="username" required value="<?= isset($username) ? clean_output($username) : '' ?>">
             </div>
 
             <div class="form-group">
                 <label for="email">Adresse e-mail</label>
-                <input type="email" id="email" name="email" required value="<?= isset($email) ? htmlspecialchars($email) : '' ?>">
+                <input type="email" id="email" name="email" required value="<?= isset($email) ? clean_output($email) : '' ?>">
             </div>
 
             <div class="form-group">

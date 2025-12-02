@@ -1,4 +1,10 @@
 <?php
+// Inclusion des fonctions de sécurité
+require_once 'functions.php';
+
+// Démarrage sécurisé de la session
+secure_session_start();
+
 // On inclut la config (qui contient $pdo et SECRET_KEY)
 $paths = ['config/db.php', 'db.php', '../config/db.php'];
 $db_found = false;
@@ -10,9 +16,13 @@ if (!$db_found) die("❌ Erreur : Impossible de trouver db.php. Vérifie ton dos
 $message = "";
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    
+    // Protection CSRF
+    csrf_protect();
+    
     if (isset($_POST['action']) && $_POST['action'] === 'test_login') {
         
-        $identifier = $_POST['identifier']; 
+        $identifier = clean_input($_POST['identifier']); 
         $pass       = $_POST['password'];
 
         $sql = "SELECT id, username, password 
@@ -30,12 +40,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         if ($user && password_verify($pass, $user['password'])) {
 
-            session_start();
-    
             // On force le serveur à créer un nouvel ID de session vierge
             session_regenerate_id(true); 
 
-            $_SESSION['user_id']  = $user['id'];
+            $_SESSION['user_id']  = (int)$user['id'];
             $_SESSION['username'] = $user['username'];
 
             // 2. Création du Cookie Personnalisé
@@ -71,6 +79,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         } else {
             $message = "❌ Erreur : Identifiant ou mot de passe incorrect.";
+            log_security_event("Tentative de connexion échouée pour : " . $identifier);
         }
     }
 }
@@ -91,10 +100,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <h2>Se Connecter</h2>
         
         <?php if (!empty($message)): ?>
-            <p class="error-message"><?= htmlspecialchars($message) ?></p>
+            <p class="error-message"><?= clean_output($message) ?></p>
         <?php endif; ?>
 
         <form action="" method="POST">
+            <?= csrf_field() ?>
             <input type="hidden" name="action" value="test_login">
             
             <div class="form-group">

@@ -1,0 +1,153 @@
+# ═══════════════════════════════════════════════════════════════════
+#  CONFIGURATION APACHE SÉCURISÉE - APPLICATION ARCOPS
+# ═══════════════════════════════════════════════════════════════════
+#  Fichier : .htaccess (racine du projet)
+#  Protection contre : LFI, RFI, Directory Traversal, Information Leakage
+# ═══════════════════════════════════════════════════════════════════
+
+# ─────────────────────────────────────────────────────────────────────
+#  1. PROTECTION DES FICHIERS SENSIBLES
+# ─────────────────────────────────────────────────────────────────────
+
+# Bloquer l'accès aux fichiers de configuration
+<FilesMatch "^(db\.php|functions\.php|\.env|config\.php|\.htaccess|\.htpasswd)$">
+    Order Allow,Deny
+    Deny from all
+</FilesMatch>
+
+# Bloquer l'accès aux logs de sécurité
+<FilesMatch "\.(log|txt)$">
+    Order Allow,Deny
+    Deny from all
+</FilesMatch>
+
+# Bloquer l'accès aux fichiers de backup
+<FilesMatch "\.(bak|backup|old|sql|gz|tar|zip)$">
+    Order Allow,Deny
+    Deny from all
+</FilesMatch>
+
+# ─────────────────────────────────────────────────────────────────────
+#  2. DÉSACTIVATION DE L'INDEXATION DES DOSSIERS
+# ─────────────────────────────────────────────────────────────────────
+
+Options -Indexes
+
+# ─────────────────────────────────────────────────────────────────────
+#  3. PROTECTION CONTRE LES ATTAQUES COURANTES
+# ─────────────────────────────────────────────────────────────────────
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    
+    # Bloquer les null bytes (%00)
+    RewriteCond %{QUERY_STRING} \%00 [OR]
+    RewriteCond %{QUERY_STRING} \x00
+    RewriteRule .* - [F,L]
+    
+    # Bloquer les tentatives de Directory Traversal
+    RewriteCond %{QUERY_STRING} \.\.\/ [OR]
+    RewriteCond %{QUERY_STRING} \.\.\\ [OR]
+    RewriteCond %{REQUEST_URI} \.\.\/ [OR]
+    RewriteCond %{REQUEST_URI} \\\.\.
+    RewriteRule .* - [F,L]
+    
+    # Bloquer les tentatives d'inclusion de fichiers distants (RFI)
+    RewriteCond %{QUERY_STRING} (http|https|ftp):\/\/ [NC,OR]
+    RewriteCond %{QUERY_STRING} php:\/\/ [NC]
+    RewriteRule .* - [F,L]
+    
+    # Bloquer les tentatives d'injection SQL basiques
+    RewriteCond %{QUERY_STRING} (union|select|insert|update|delete|drop|create|alter) [NC]
+    RewriteRule .* - [F,L]
+    
+    # Bloquer les user-agents de scanners connus
+    RewriteCond %{HTTP_USER_AGENT} (nikto|nmap|sqlmap|acunetix|nessus|w3af) [NC]
+    RewriteRule .* - [F,L]
+    
+    # Bloquer les tentatives d'accès aux fichiers système
+    RewriteCond %{REQUEST_URI} (etc/passwd|proc/self|windows/system) [NC]
+    RewriteRule .* - [F,L]
+</IfModule>
+
+# ─────────────────────────────────────────────────────────────────────
+#  4. HEADERS DE SÉCURITÉ HTTP
+# ─────────────────────────────────────────────────────────────────────
+
+<IfModule mod_headers.c>
+    # Protection contre le Clickjacking
+    Header always set X-Frame-Options "SAMEORIGIN"
+    
+    # Protection XSS intégrée au navigateur
+    Header always set X-XSS-Protection "1; mode=block"
+    
+    # Empêche le sniffing MIME
+    Header always set X-Content-Type-Options "nosniff"
+    
+    # Politique de référents (ne pas envoyer l'URL complète vers sites externes)
+    Header always set Referrer-Policy "strict-origin-when-cross-origin"
+    
+    # Content Security Policy (CSP) - À personnaliser selon vos besoins
+    Header always set Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; img-src 'self' data: https:; font-src 'self' https://cdnjs.cloudflare.com;"
+    
+    # Strict Transport Security (HTTPS uniquement) - Décommenter après activation SSL
+    # Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+    
+    # Permissions Policy (anciennement Feature-Policy)
+    Header always set Permissions-Policy "geolocation=(), microphone=(), camera=()"
+</IfModule>
+
+# ─────────────────────────────────────────────────────────────────────
+#  5. LIMITATION DES MÉTHODES HTTP
+# ─────────────────────────────────────────────────────────────────────
+
+<LimitExcept GET POST HEAD>
+    Order Allow,Deny
+    Deny from all
+</LimitExcept>
+
+# ─────────────────────────────────────────────────────────────────────
+#  6. CONFIGURATION PHP SÉCURISÉE
+# ─────────────────────────────────────────────────────────────────────
+
+<IfModule mod_php7.c>
+    # Masquer la version de PHP dans les headers
+    php_flag expose_php Off
+    
+    # Désactiver les fonctions dangereuses
+    php_value disable_functions "exec,passthru,shell_exec,system,proc_open,popen,curl_exec,curl_multi_exec,parse_ini_file,show_source"
+    
+    # Limiter la taille des uploads
+    php_value upload_max_filesize 5M
+    php_value post_max_size 6M
+    
+    # Désactiver register_globals (normalement déjà off par défaut)
+    php_flag register_globals Off
+    
+    # Activer le mode strict des sessions
+    php_value session.use_strict_mode 1
+    
+    # Limiter les sources de fichiers inclus
+    php_flag allow_url_include Off
+</IfModule>
+
+# ─────────────────────────────────────────────────────────────────────
+#  7. GESTION DES ERREURS
+# ─────────────────────────────────────────────────────────────────────
+
+# Ne pas afficher les erreurs en production (évite l'information disclosure)
+php_flag display_errors Off
+php_flag display_startup_errors Off
+
+# Logger les erreurs dans un fichier (à sécuriser)
+php_flag log_errors On
+php_value error_log /var/log/php_errors.log
+
+# Pages d'erreur personnalisées (optionnel)
+# ErrorDocument 403 /error403.html
+# ErrorDocument 404 /error404.html
+# ErrorDocument 500 /error500.html
+
+# ═══════════════════════════════════════════════════════════════════
+#  FIN DE LA CONFIGURATION - NE PAS MODIFIER SANS BACKUP
+# ═══════════════════════════════════════════════════════════════════

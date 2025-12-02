@@ -1,5 +1,9 @@
 <?php
-session_start();
+// Inclusion des fonctions de sécurité
+require_once 'functions.php';
+
+// Démarrage sécurisé de la session
+secure_session_start();
 
 // --- 1. CONFIGURATION & BDD ---
 $paths = ['config/db.php', 'db.php', '../config/db.php'];
@@ -15,12 +19,12 @@ if (!isset($_SESSION['user_id'])) {
     exit;
 }
 
-$project_id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
+$project_id = isset($_GET['id']) ? secure_int($_GET['id']) : 0;
 if ($project_id === 0) die("❌ Erreur : Aucun projet sélectionné.");
 
 // --- SECURITÉ RBAC (Role-Based Access Control) ---
 // Vérifier le rôle de l'utilisateur DANS CE PROJET
-$userId = $_SESSION['user_id'];
+$userId = secure_int($_SESSION['user_id']);
 $stmtRole = $pdo->prepare("SELECT role FROM project_members WHERE project_id = ? AND user_id = ?");
 $stmtRole->execute([$project_id, $userId]);
 $userRole = $stmtRole->fetchColumn();
@@ -86,31 +90,37 @@ function delete_folder_recursive($dir) {
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     
+    // Protection CSRF
+    csrf_protect();
+    
     // A. UPDATE INFOS GENERALES (AVEC UPLOAD IMAGE)
     if (isset($_POST['update_general'])) {
-        $title = $_POST['title'];
-        $desc  = $_POST['description'];
+        $title = clean_input($_POST['title']);
+        $desc  = clean_input($_POST['description']);
         
         // Gestion Image (Si nouvelle image envoyée)
         $imageUpdateSQL = "";
         $params = ['t' => $title, 'd' => $desc, 'id' => $project_id];
 
         if (isset($_FILES['banner_file']) && $_FILES['banner_file']['error'] === 0) {
-            $allowed = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
-            $fileExt = strtolower(pathinfo($_FILES['banner_file']['name'], PATHINFO_EXTENSION));
+            $validation = validate_file_upload($_FILES['banner_file'], ['jpg', 'jpeg', 'png', 'gif', 'webp'], 5242880);
             
-            if (in_array($fileExt, $allowed) && $_FILES['banner_file']['size'] < 5000000) {
-                $uniqueName = 'proj_' . uniqid() . '.' . $fileExt;
+            if ($validation['success']) {
                 $uploadDir = 'assets/imageProject/';
                 if (!is_dir($uploadDir)) mkdir($uploadDir, 0755, true);
                 
-                if (move_uploaded_file($_FILES['banner_file']['tmp_name'], $uploadDir . $uniqueName)) {
+                $destPath = $uploadDir . $validation['safe_name'];
+                
+                if (move_uploaded_file($_FILES['banner_file']['tmp_name'], $destPath)) {
                     $imageUpdateSQL = ", image_url = :img";
-                    $params['img'] = $uploadDir . $uniqueName;
+                    $params['img'] = $destPath;
+                } else {
+                    log_security_event("Échec upload bannière projet {$project_id}");
                 }
             } else {
-                $message = "Format d'image invalide ou trop lourd.";
+                $message = $validation['message'];
                 $msg_type = "error";
+                log_security_event("Upload invalide bannière projet {$project_id}: " . $validation['message']);
             }
         }
 
@@ -176,8 +186,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     // E. MEMBRES (AJOUT/SUPPRESSION - Code existant conservé)
     if (isset($_POST['add_member'])) { /* ... Code identique à avant ... */ 
-        $username_to_add = trim($_POST['new_member_name']);
-        $role_to_assign  = trim($_POST['new_member_role']);
+        $username_to_add = clean_input(trim($_POST['new_member_name']));
+        $role_to_assign  = clean_input(trim($_POST['new_member_role']));
         $stmtU = $pdo->prepare("SELECT id FROM users WHERE username = ?");
         $stmtU->execute([$username_to_add]);
         $userToAdd = $stmtU->fetch(PDO::FETCH_ASSOC);
@@ -192,7 +202,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } else { $message = "Utilisateur introuvable."; $msg_type = "error"; }
     }
     if (isset($_POST['remove_user_id'])) {
-        $userIdToRemove = $_POST['remove_user_id'];
+        $userIdToRemove = secure_int($_POST['remove_user_id']);
         $stmtDel = $pdo->prepare("DELETE FROM project_members WHERE user_id = ? AND project_id = ?"); 
         $stmtDel->execute([$userIdToRemove, $project_id]);
         $message = "Membre retiré."; $msg_type = "success";
@@ -323,6 +333,7 @@ if (file_exists($noteFile)) $projectNotes = json_decode(file_get_contents($noteF
                     <h3><i class="fas fa-edit"></i> Informations Générales</h3>
                     
                     <form method="POST" action="" enctype="multipart/form-data">
+                        <?= csrf_field() ?>
                         <input type="hidden" name="update_general" value="1">
                         
                         <div class="form-group">
@@ -363,6 +374,7 @@ if (file_exists($noteFile)) $projectNotes = json_decode(file_get_contents($noteF
                     <h3><i class="fas fa-tasks"></i> Gestion des Objectifs</h3>
                     
                     <form method="POST" action="" style="display: flex; gap: 10px; margin-bottom: 20px;">
+                        <?= csrf_field() ?>
                         <input type="hidden" name="add_objective" value="1">
                         <input type="text" name="obj_text" class="form-control" placeholder="Nouvel objectif" required style="flex:2;">
                         <input type="number" name="obj_weight" class="form-control" placeholder="%" min="1" max="100" required style="flex:1;">
@@ -383,6 +395,7 @@ if (file_exists($noteFile)) $projectNotes = json_decode(file_get_contents($noteF
                                     <td><?= $obj['weight'] ?>%</td>
                                     <td style="text-align: right;">
                                         <form method="POST" action="" onsubmit="return confirm('Supprimer ?');">
+                                            <?= csrf_field() ?>
                                             <input type="hidden" name="delete_objective_id" value="<?= $obj['id'] ?>">
                                             <button type="submit" class="btn-remove"><i class="fas fa-trash"></i></button>
                                         </form>
@@ -408,6 +421,7 @@ if (file_exists($noteFile)) $projectNotes = json_decode(file_get_contents($noteF
                         Suppression définitive du projet, des fichiers et des notes.
                     </p>
                     <form method="POST" onsubmit="return confirm('Êtes-vous ABSOLUMENT SÛR ?');">
+                        <?= csrf_field() ?>
                         <input type="hidden" name="delete_total_project" value="1">
                         <button type="submit" class="btn-danger"><i class="fas fa-trash-alt"></i> Supprimer définitivement</button>
                     </form>
@@ -418,6 +432,7 @@ if (file_exists($noteFile)) $projectNotes = json_decode(file_get_contents($noteF
                 <div class="section-card">
                     <h3><i class="fas fa-users-cog"></i> Membres</h3>
                     <form method="POST" action="" style="margin-bottom: 20px; display:flex; gap:5px;">
+                        <?= csrf_field() ?>
                         <input type="hidden" name="add_member" value="1">
                         <input type="text" name="new_member_name" class="form-control" placeholder="Pseudo" required>
                         <input type="text" name="new_member_role" class="form-control" placeholder="Rôle" required>
@@ -431,6 +446,7 @@ if (file_exists($noteFile)) $projectNotes = json_decode(file_get_contents($noteF
                                     <td><small><?= htmlspecialchars($mem['role']) ?></small></td>
                                     <td style="text-align: right;">
                                         <form method="POST" action="" onsubmit="return confirm('Retirer ?');">
+                                            <?= csrf_field() ?>
                                             <input type="hidden" name="remove_user_id" value="<?= $mem['user_id'] ?>">
                                             <button type="submit" class="btn-remove"><i class="fas fa-trash"></i></button>
                                         </form>
@@ -450,6 +466,7 @@ if (file_exists($noteFile)) $projectNotes = json_decode(file_get_contents($noteF
                                     <small style="color:var(--purple-main); font-weight:bold;"><?= htmlspecialchars($note['auteur']) ?> - <?= $note['date'] ?></small>
                                     <p style="margin:5px 0; font-size:0.9rem;"><?= htmlspecialchars_decode(substr($note['contenu'], 0, 50)) ?>...</p>
                                     <form method="POST" style="position:absolute; top:5px; right:5px;">
+                                        <?= csrf_field() ?>
                                         <input type="hidden" name="delete_note_id" value="<?= $note['id'] ?>">
                                         <button type="submit" class="btn-remove" style="padding:2px 6px;"><i class="fas fa-times"></i></button>
                                     </form>

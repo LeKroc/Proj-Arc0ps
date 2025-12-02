@@ -1,5 +1,13 @@
 <?php
-session_start();
+// ═══════════════════════════════════════════════════════════════════
+//  DASHBOARD - VERSION SÉCURISÉE (OWASP Compliance)
+// ═══════════════════════════════════════════════════════════════════
+
+// Inclusion des fonctions de sécurité
+require_once 'functions.php';
+
+// Démarrage sécurisé de la session
+secure_session_start();
 
 // --- 1. CONNEXION DB ---
 $paths = ['config/db.php', 'db.php', '../config/db.php'];
@@ -39,35 +47,40 @@ if (!isset($_SESSION['user_id'])) {
     exit;
 }
 
-$userId = $_SESSION['user_id']; 
+$userId = secure_int($_SESSION['user_id']); 
 $settingsMessage = "";
 
-// --- 3. TRAITEMENT DU FORMULAIRE (UPDATE) ---
-// IMPORTANT : On le fait AVANT de récupérer les infos de l'utilisateur
+// --- 3. PROTECTION CSRF SUR TOUS LES FORMULAIRES ---
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    csrf_protect();
+}
+
 // --- 4. TRAITEMENT CREATION PROJET (AVEC IMAGE) ---
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_project'])) {
     if (isset($pdo)) {
         // Sécurisation
-        $name = htmlspecialchars($_POST['project_name']);
-        $desc = htmlspecialchars($_POST['project_desc']);
-        $owner = $_SESSION['user_id'] ?? 1;
+        $title = clean_input($_POST['project_name']);
+        $desc = clean_input($_POST['project_desc']);
+        $owner = secure_int($_SESSION['user_id']);
         $imagePath = null; 
 
-        // Upload Image Projet
+        // Upload Image Projet (SÉCURISÉ)
         if (isset($_FILES['project_image']) && $_FILES['project_image']['error'] === 0) {
-            $allowed = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
-            $fileExt = strtolower(pathinfo($_FILES['project_image']['name'], PATHINFO_EXTENSION));
-
-            if (in_array($fileExt, $allowed) && $_FILES['project_image']['size'] < 5000000) {
-                $uniqueName = 'proj_' . time() . '_' . rand(1000,9999) . '.' . $fileExt;
+            $validation = validate_file_upload($_FILES['project_image'], ['jpg', 'jpeg', 'png', 'gif', 'webp'], 5242880);
+            
+            if ($validation['success']) {
                 $uploadDir = 'assets/imageProject/';
-                
                 if (!is_dir($uploadDir)) mkdir($uploadDir, 0755, true);
-                $destPath = $uploadDir . $uniqueName;
+                
+                $destPath = $uploadDir . $validation['safe_name'];
                 
                 if (move_uploaded_file($_FILES['project_image']['tmp_name'], $destPath)) {
                     $imagePath = $destPath;
+                } else {
+                    log_security_event("Échec du déplacement du fichier uploadé : " . $_FILES['project_image']['name']);
                 }
+            } else {
+                log_security_event("Tentative d'upload de fichier invalide : " . $validation['message']);
             }
         }
 
@@ -78,7 +91,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_project'])) {
         if ($stmt->execute([$owner, $title, $desc, $imagePath])) {
             
             // --- NOUVEAU : On ajoute le créateur comme OWNER dans les membres ---
-            $newProjectId = $pdo->lastInsertId();
+            $newProjectId = (int)$pdo->lastInsertId();
             $stmtMember = $pdo->prepare("INSERT INTO project_members (project_id, user_id, role) VALUES (?, ?, 'owner')");
             $stmtMember->execute([$newProjectId, $owner]);
             // --------------------------------------------------------------------
@@ -89,7 +102,60 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_project'])) {
     }
 }
 
-// --- 4. RECUPERATION DES DONNEES (SELECT) ---
+// --- 5. TRAITEMENT UPDATE PROFIL (SETTINGS) ---
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'update_profile') {
+    $newUsername = clean_input($_POST['username']);
+    $newEmail = clean_input($_POST['email']);
+    $newBio = clean_input($_POST['bio']);
+    
+    $avatarPath = null;
+
+    // Upload Avatar (SÉCURISÉ)
+    if (isset($_FILES['avatar']) && $_FILES['avatar']['error'] === 0) {
+        $validation = validate_file_upload($_FILES['avatar'], ['jpg', 'jpeg', 'png', 'gif'], 2097152); // 2Mo max
+        
+        if ($validation['success']) {
+            $uploadDir = 'assets/PhotoProfile/';
+            if (!is_dir($uploadDir)) mkdir($uploadDir, 0755, true);
+            
+            $destPath = $uploadDir . $validation['safe_name'];
+            
+            if (move_uploaded_file($_FILES['avatar']['tmp_name'], $destPath)) {
+                // Suppression ancien avatar si existe
+                if (!empty($currentUser['avatar_url']) && file_exists($currentUser['avatar_url'])) {
+                    if ($currentUser['avatar_url'] !== 'assets/PhotoProfile/default_avatar.png') {
+                        unlink($currentUser['avatar_url']);
+                    }
+                }
+                $avatarPath = $destPath;
+            } else {
+                log_security_event("Échec upload avatar pour user " . $userId);
+            }
+        } else {
+            $settingsMessage = '<div class="alert alert-error">' . clean_output($validation['message']) . '</div>';
+        }
+    }
+
+    // Mise à jour BDD
+    if (empty($settingsMessage)) {
+        if ($avatarPath) {
+            $sql = "UPDATE users SET username = ?, email = ?, bio = ?, avatar_url = ? WHERE id = ?";
+            $stmt = $pdo->prepare($sql);
+            $stmt->execute([$newUsername, $newEmail, $newBio, $avatarPath, $userId]);
+        } else {
+            $sql = "UPDATE users SET username = ?, email = ?, bio = ? WHERE id = ?";
+            $stmt = $pdo->prepare($sql);
+            $stmt->execute([$newUsername, $newEmail, $newBio, $userId]);
+        }
+        
+        $_SESSION['username'] = $newUsername;
+        $settingsMessage = '<div class="alert alert-success">Profil mis à jour avec succès !</div>';
+        header("Location: " . $_SERVER['PHP_SELF']);
+        exit;
+    }
+}
+
+// --- 6. RECUPERATION DES DONNEES (SELECT) ---
 // On récupère les données MAINTENANT (donc après la potentielle mise à jour)
 $currentUser = false;
 $pinnedProjects = [];
@@ -131,77 +197,13 @@ function get_status_badge_html($status) {
     else if ($status == 'En Cours') $class .= ' status-primary';
     else if ($status == 'En Attente') $class .= ' status-warning';
     else $class .= ' status-error'; 
-    return "<span class=\"$class\">" . htmlspecialchars($status) . "</span>";
-}
-
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_project'])) {
-    if (isset($pdo)) {
-        // Sécurisation des entrées
-        $name = htmlspecialchars($_POST['project_name']);
-        $desc = htmlspecialchars($_POST['project_desc']);
-        $owner = $_SESSION['user_id'] ?? 1;
-
-        // Insertion dans la BDD
-        $sql = "INSERT INTO projects (owner_id, name, description, created_at, updated_at, is_pinned) VALUES (?, ?, ?, NOW(), NOW(), 0)";
-        $stmt = $pdo->prepare($sql);
-        $stmt->execute([$owner, $name, $desc]);
-
-        // Rafraichir la page pour afficher le nouveau projet
-        header("Location: " . $_SERVER['PHP_SELF']);
-        exit;
-    }
-}
-
-// --- 4. TRAITEMENT CREATION PROJET (IMAGE UNIQUE) ---
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_project'])) {
-    if (isset($pdo)) {
-        // 1. Sécurisation
-        $title = htmlspecialchars($_POST['project_name']);
-        $desc = htmlspecialchars($_POST['project_desc']);
-        $owner = $_SESSION['user_id'] ?? 1;
-        $imagePath = null; 
-
-        // 2. Gestion de l'Upload
-        if (isset($_FILES['project_image']) && $_FILES['project_image']['error'] === 0) {
-            $allowed = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
-            $fileExt = strtolower(pathinfo($_FILES['project_image']['name'], PATHINFO_EXTENSION));
-
-            if (in_array($fileExt, $allowed) && $_FILES['project_image']['size'] < 5000000) {
-                
-                // GÉNÉRATION D'UN ID UNIQUE (ex: proj_654a123bc.jpg)
-                // uniqid() génère un identifiant unique basé sur l'heure exacte à la microseconde
-                $uniqueName = uniqid('proj_') . '.' . $fileExt;
-                
-                $uploadDir = 'assets/imageProject/';
-                
-                // Création du dossier si inexistant
-                if (!is_dir($uploadDir)) mkdir($uploadDir, 0755, true);
-                
-                $destPath = $uploadDir . $uniqueName;
-                
-                // Si l'upload fonctionne, on garde le chemin pour la DB
-                if (move_uploaded_file($_FILES['project_image']['tmp_name'], $destPath)) {
-                    $imagePath = $destPath;
-                }
-            }
-        }
-
-        // 3. Insertion dans la BDD
-        // On insère tout d'un coup : Titre, Description, et le Chemin de l'image
-        $sql = "INSERT INTO projects (owner_id, title, description, created_at, updated_at, is_pinned, image_url) VALUES (?, ?, ?, NOW(), NOW(), 0, ?)";
-        $stmt = $pdo->prepare($sql);
-        $stmt->execute([$owner, $title, $desc, $imagePath]);
-
-        // Rafraichir la page
-        header("Location: " . $_SERVER['PHP_SELF']);
-        exit;
-    }
+    return "<span class=\"$class\">" . clean_output($status) . "</span>";
 }
 
 // --- AJOUT : TRAITEMENT DU PIN (EPINGLE) ---
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['toggle_pin'])) {
     if (isset($pdo)) {
-        $projId = (int)$_POST['project_id'];
+        $projId = secure_int($_POST['project_id']);
         // Inverse l'état : Si 0 devient 1, Si 1 devient 0
         $sql = "UPDATE projects SET is_pinned = NOT is_pinned WHERE id = ? AND owner_id = ?";
         $stmt = $pdo->prepare($sql);
@@ -319,6 +321,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['toggle_pin'])) {
                             <h2>Nouveau Projet</h2>
 
                             <form method="POST" action="" enctype="multipart/form-data">
+                                <?= csrf_field() ?>
                                 <input type="hidden" name="create_project" value="1">
 
                                 <div class="form-group">
@@ -375,6 +378,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['toggle_pin'])) {
                                 
                                 <div class="pin-container" onclick="event.stopPropagation()">
                                     <form method="POST">
+                                        <?= csrf_field() ?>
                                         <input type="hidden" name="toggle_pin" value="1">
                                         <input type="hidden" name="project_id" value="<?= $id ?>">
                                         
@@ -419,6 +423,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['toggle_pin'])) {
                         <?php if (!empty($settingsMessage)) echo $settingsMessage; ?>
 
                         <form class="settings-form" method="POST" action="" enctype="multipart/form-data">
+                            <?= csrf_field() ?>
                             <input type="hidden" name="action" value="update_profile">
 
                             <div class="form-group">

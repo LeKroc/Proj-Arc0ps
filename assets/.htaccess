@@ -1,0 +1,44 @@
+# ═══════════════════════════════════════════════════════════════════
+#  SÉCURISATION DU DOSSIER ASSETS - PROTECTION RCE
+# ═══════════════════════════════════════════════════════════════════
+#  Empêche l'exécution de scripts PHP uploadés dans /assets/
+#  À placer dans : /assets/.htaccess
+# ═══════════════════════════════════════════════════════════════════
+
+# Désactiver complètement l'exécution de PHP
+php_flag engine off
+
+# Bloquer l'accès aux fichiers PHP (double protection)
+<FilesMatch "\.(php|php3|php4|php5|php7|phtml|pht|phps)$">
+    Order Allow,Deny
+    Deny from all
+</FilesMatch>
+
+# Autoriser uniquement les types de fichiers sûrs
+<FilesMatch "\.(jpg|jpeg|png|gif|webp|pdf|zip|rar|txt|json|ico)$">
+    Order Allow,Deny
+    Allow from all
+</FilesMatch>
+
+# Protection contre les tentatives de bypass (double extension)
+<FilesMatch "\.php\.">
+    Order Allow,Deny
+    Deny from all
+</FilesMatch>
+
+# Désactiver l'indexation des dossiers
+Options -Indexes
+
+# Forcer le téléchargement au lieu de l'affichage pour certains types
+<FilesMatch "\.(pdf|zip|rar)$">
+    Header set Content-Disposition "attachment"
+</FilesMatch>
+
+# Protection contre les null bytes et autres exploits d'encoding
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteCond %{REQUEST_URI} \%00 [OR]
+    RewriteCond %{REQUEST_URI} \x00 [OR]
+    RewriteCond %{REQUEST_URI} \%2500
+    RewriteRule .* - [F,L]
+</IfModule>

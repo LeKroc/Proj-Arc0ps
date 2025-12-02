@@ -1,5 +1,9 @@
 <?php
-session_start();
+// Inclusion des fonctions de sécurité
+require_once 'functions.php';
+
+// Démarrage sécurisé de la session
+secure_session_start();
 
 // 1. Inclusion DB
 $paths = ['config/db.php', 'db.php', '../config/db.php'];
@@ -12,7 +16,17 @@ if (!$db_found) die("❌ Erreur : Impossible de trouver db.php.");
 // Sécurité
 if (!isset($_SESSION['user_id'])) { header('Location: login.php'); exit; }
 
-$project_id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
+$project_id = isset($_GET['id']) ? secure_int($_GET['id']) : 0;
+if ($project_id === 0) die("❌ Erreur : ID projet invalide.");
+
+// ═══════════════════════════════════════════════════════════════════
+//  PROTECTION IDOR (Insecure Direct Object Reference)
+// ═══════════════════════════════════════════════════════════════════
+// On vérifie que l'utilisateur connecté est MEMBRE de ce projet
+$userId = secure_int($_SESSION['user_id']);
+require_project_access($pdo, $userId, $project_id);
+// Si la fonction ci-dessus ne bloque pas, c'est que l'accès est OK
+// ═══════════════════════════════════════════════════════════════════
 
 // --- CONFIGURATION FICHIERS & NOTES ---
 $uploadDir = 'assets/project_files/' . $project_id . '/';
@@ -42,6 +56,9 @@ function recalculateProgress($pdo, $pid) {
 // --- TRAITEMENT DES FORMULAIRES ---
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     
+    // Protection CSRF
+    csrf_protect();
+    
     // 1. OBJECTIFS (AJOUT)
     if (isset($_POST['new_objective_text'])) {
         $text = trim($_POST['new_objective_text']);
@@ -56,7 +73,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     // 2. OBJECTIFS (TOGGLE)
     if (isset($_POST['toggle_objective_id'])) {
-        $oid = (int)$_POST['toggle_objective_id'];
+        $oid = secure_int($_POST['toggle_objective_id']);
         $stmt = $pdo->prepare("UPDATE project_objectives SET is_done = NOT is_done WHERE id = ? AND project_id = ?");
         $stmt->execute([$oid, $project_id]);
         recalculateProgress($pdo, $project_id);
@@ -70,15 +87,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         
         if (count($existingFiles) >= $maxFilesCount) {
             $error_msg = "Limite de 10 fichiers atteinte.";
-        } elseif ($_FILES['new_file']['size'] > $maxFileSize) {
-            $error_msg = "Fichier trop lourd (Max 3Mo).";
         } else {
-            $fileName = $_FILES['new_file']['name'];
-            $newFileName = time() . '_' . preg_replace('/[^a-zA-Z0-9\._-]/', '', $fileName);
+            // Utilisation de la fonction sécurisée
+            $validation = validate_file_upload($_FILES['new_file'], ['jpg', 'jpeg', 'png', 'gif', 'webp', 'pdf', 'zip', 'rar', 'doc', 'docx', 'xls', 'xlsx', 'txt'], $maxFileSize);
             
-            if (move_uploaded_file($_FILES['new_file']['tmp_name'], $uploadDir . $newFileName)) {
-                header("Location: avancement.php?id=" . $project_id);
-                exit;
+            if ($validation['success']) {
+                $destPath = $uploadDir . $validation['safe_name'];
+                
+                if (move_uploaded_file($_FILES['new_file']['tmp_name'], $destPath)) {
+                    header("Location: avancement.php?id=" . $project_id);
+                    exit;
+                } else {
+                    $error_msg = "Erreur lors du déplacement du fichier.";
+                    log_security_event("Échec upload fichier projet {$project_id}");
+                }
+            } else {
+                $error_msg = $validation['message'];
+                log_security_event("Tentative upload fichier invalide projet {$project_id} : " . $validation['message']);
             }
         }
     }
@@ -94,7 +119,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     // 5. NOTES (AJOUT JSON)
     if (isset($_POST['new_note_content'])) {
-        $content = htmlspecialchars(trim($_POST['new_note_content']));
+        $content = clean_input(trim($_POST['new_note_content']));
         
         if (!empty($content)) {
             $currentNotes = [];
@@ -163,7 +188,7 @@ function get_status_badge($status) {
     if (strpos($s, 'termin') !== false) $cls = 'status-success';
     if (strpos($s, 'attent') !== false) $cls = 'status-warning';
     if (strpos($s, 'bloq') !== false)   $cls = 'status-error';
-    return '<span class="status-badge '.$cls.'">'.htmlspecialchars($status).'</span>';
+    return '<span class="status-badge '.$cls.'">'.clean_output($status).'</span>';
 }
 
 function get_file_icon($filename) {
@@ -338,6 +363,7 @@ if (!empty($project['image_url']) && file_exists($project['image_url'])) {
                             <?php foreach($objectives as $obj): ?>
                                 <div class="objective-item <?= $obj['is_done'] ? 'done' : '' ?>">
                                     <form method="POST" class="check-form">
+                                        <?= csrf_field() ?>
                                         <input type="hidden" name="toggle_objective_id" value="<?= $obj['id'] ?>">
                                         <input type="checkbox" class="custom-checkbox" onchange="this.form.submit()" <?= $obj['is_done'] ? 'checked' : '' ?>>
                                     </form>
@@ -354,6 +380,7 @@ if (!empty($project['image_url']) && file_exists($project['image_url'])) {
                         <?php endif; ?>
                     </div>
                     <form method="POST" class="obj-input-group">
+                        <?= csrf_field() ?>
                         <input type="text" name="new_objective_text" class="obj-input" placeholder="Ajout rapide..." required>
                         <button type="submit" class="btn-action" style="width:auto; margin:0;"><i class="fas fa-plus"></i></button>
                     </form>
@@ -362,6 +389,7 @@ if (!empty($project['image_url']) && file_exists($project['image_url'])) {
                 <div class="detail-card">
                     <h3><i class="fas fa-sticky-note"></i> Notes de Suivi</h3>
                     <form method="POST" style="margin-bottom: 20px;">
+                        <?= csrf_field() ?>
                         <textarea name="new_note_content" class="note-textarea" placeholder="Écrire une note..." required></textarea>
                         <button type="submit" class="btn-action">Ajouter la note</button>
                     </form>
@@ -423,6 +451,7 @@ if (!empty($project['image_url']) && file_exists($project['image_url'])) {
                                     <span style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;"><?= htmlspecialchars(substr($file, 11)) ?></span>
                                 </a>
                                 <form method="POST" onsubmit="return confirm('Supprimer ce fichier ?');">
+                                    <?= csrf_field() ?>
                                     <input type="hidden" name="delete_file_name" value="<?= $file ?>">
                                     <button type="submit" class="file-delete-btn"><i class="fas fa-trash"></i></button>
                                 </form>
@@ -434,6 +463,7 @@ if (!empty($project['image_url']) && file_exists($project['image_url'])) {
                     <br>
                     <br>
                     <form method="POST" enctype="multipart/form-data">
+                        <?= csrf_field() ?>
                         <label class="upload-area">
                             <input type="file" name="new_file" style="display:none;" onchange="this.form.submit()">
                             <i class="fas fa-cloud-upload-alt"></i> Ajouter un fichier

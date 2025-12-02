@@ -22,3 +22,24 @@ Thumbs.db
 
 # Ignorer les fichiers de debug admin qui est un couteau suisse pour le developpement
 # si on veux retirer le debug tool admin_debug.php
+
+# ═══════════════════════════════════════════════════════════════════
+#  SÉCURITÉ - Ajouté par l'audit DevSecOps
+# ═══════════════════════════════════════════════════════════════════
+
+# Logs de sécurité (contiennent des informations sensibles)
+/logs/*
+*.log
+
+# Fichiers uploadés par les utilisateurs (peuvent contenir des exploits)
+/assets/imageProject/*
+/assets/PhotoProfile/*
+/assets/project_files/*
+/assets/notes/*
+
+# Garder les dossiers vides avec .gitkeep
+!.gitkeep
+
+# Cookies de session (ne jamais commit)
+*_auth
+*.session
