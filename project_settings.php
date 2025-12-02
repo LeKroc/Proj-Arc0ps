@@ -9,95 +9,233 @@ foreach ($paths as $p) {
 }
 if (!$db_found) die("❌ Erreur : Impossible de trouver db.php.");
 
-// Sécurité : Vérifier si connecté
+// Sécurité : Login requis
 if (!isset($_SESSION['user_id'])) {
     header('Location: login.php');
     exit;
 }
 
 $project_id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
+if ($project_id === 0) die("❌ Erreur : Aucun projet sélectionné.");
+
+// --- SECURITÉ RBAC (Role-Based Access Control) ---
+// Vérifier le rôle de l'utilisateur DANS CE PROJET
+$userId = $_SESSION['user_id'];
+$stmtRole = $pdo->prepare("SELECT role FROM project_members WHERE project_id = ? AND user_id = ?");
+$stmtRole->execute([$project_id, $userId]);
+$userRole = $stmtRole->fetchColumn();
+
+// Liste des rôles autorisés à modifier les settings
+$allowed_roles = ['owner', 'admin'];
+
+// Si l'utilisateur n'a pas le bon rôle, on affiche une page d'erreur "Accès Refusé"
+if (!in_array($userRole, $allowed_roles)) {
+    // On inclut le CSS pour que la page d'erreur soit jolie
+    ?>
+    <!DOCTYPE html>
+    <html lang="fr">
+    <head>
+        <meta charset="UTF-8">
+        <title>Accès Refusé</title>
+        <link rel="stylesheet" href="style-dashboard.css">
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+        <style>
+            body { display: flex; align-items: center; justify-content: center; height: 100vh; background: #1e1e2f; color: white; }
+            .error-card { text-align: center; padding: 40px; background: #27293d; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); max-width: 500px; }
+            .error-icon { font-size: 4rem; color: #e74c3c; margin-bottom: 20px; }
+            .btn-back { background: #ba54f5; color: white; padding: 10px 20px; border-radius: 5px; text-decoration: none; font-weight: bold; display: inline-block; margin-top: 20px; }
+        </style>
+    </head>
+    <body>
+        <div class="error-card">
+            <div class="error-icon"><i class="fas fa-lock"></i></div>
+            <h2>Accès Refusé</h2>
+            <p style="color:#aaa; margin: 15px 0;">Vous n'avez pas les droits suffisants pour accéder aux paramètres de ce projet.</p>
+            <p style="font-size:0.9rem;">Votre rôle actuel : <span class="status-badge" style="background:#444;"><?= htmlspecialchars($userRole ?: 'Aucun') ?></span></p>
+            <a href="avancement.php?id=<?= $project_id ?>" class="btn-back">Retour au projet</a>
+        </div>
+    </body>
+    </html>
+    <?php
+    exit; // On arrête tout ici, le reste du fichier ne sera pas exécuté
+}
+
 $message = "";
-$msg_type = ""; // success ou error
+$msg_type = ""; 
+
+// Helpers
+function recalculateProgressInsideSettings($pdo, $pid) {
+    $stmt = $pdo->prepare("SELECT SUM(weight) FROM project_objectives WHERE project_id = ? AND is_done = 1");
+    $stmt->execute([$pid]);
+    $progress = (int)$stmt->fetchColumn();
+    if ($progress > 100) $progress = 100;
+    $stmtUpd = $pdo->prepare("UPDATE projects SET progression = ? WHERE id = ?");
+    $stmtUpd->execute([$progress, $pid]);
+}
+
+function delete_folder_recursive($dir) {
+    if (!is_dir($dir)) return;
+    $files = array_diff(scandir($dir), array('.','..'));
+    foreach ($files as $file) {
+        (is_dir("$dir/$file")) ? delete_folder_recursive("$dir/$file") : unlink("$dir/$file");
+    }
+    return rmdir($dir);
+}
 
 // --- 2. TRAITEMENT DES FORMULAIRES (POST) ---
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     
-    // A. MISE A JOUR DES INFOS GENERALES
+    // A. UPDATE INFOS GENERALES (AVEC UPLOAD IMAGE)
     if (isset($_POST['update_general'])) {
         $title = $_POST['title'];
         $desc  = $_POST['description'];
-        $img   = $_POST['image_url'];
+        
+        // Gestion Image (Si nouvelle image envoyée)
+        $imageUpdateSQL = "";
+        $params = ['t' => $title, 'd' => $desc, 'id' => $project_id];
 
-        $sql = "UPDATE projects SET title = :t, description = :d, image_url = :i WHERE id = :id";
-        $stmt = $pdo->prepare($sql);
-        if ($stmt->execute(['t' => $title, 'd' => $desc, 'i' => $img, 'id' => $project_id])) {
-            $message = "Informations mises à jour avec succès.";
-            $msg_type = "success";
-        } else {
-            $message = "Erreur lors de la mise à jour.";
-            $msg_type = "error";
+        if (isset($_FILES['banner_file']) && $_FILES['banner_file']['error'] === 0) {
+            $allowed = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
+            $fileExt = strtolower(pathinfo($_FILES['banner_file']['name'], PATHINFO_EXTENSION));
+            
+            if (in_array($fileExt, $allowed) && $_FILES['banner_file']['size'] < 5000000) {
+                $uniqueName = 'proj_' . uniqid() . '.' . $fileExt;
+                $uploadDir = 'assets/imageProject/';
+                if (!is_dir($uploadDir)) mkdir($uploadDir, 0755, true);
+                
+                if (move_uploaded_file($_FILES['banner_file']['tmp_name'], $uploadDir . $uniqueName)) {
+                    $imageUpdateSQL = ", image_url = :img";
+                    $params['img'] = $uploadDir . $uniqueName;
+                }
+            } else {
+                $message = "Format d'image invalide ou trop lourd.";
+                $msg_type = "error";
+            }
+        }
+
+        if (empty($msg_type)) { // Si pas d'erreur d'image
+            $sql = "UPDATE projects SET title = :t, description = :d $imageUpdateSQL WHERE id = :id";
+            $stmt = $pdo->prepare($sql);
+            if ($stmt->execute($params)) {
+                $message = "Informations mises à jour.";
+                $msg_type = "success";
+            }
         }
     }
 
-    // B. AJOUT D'UN MEMBRE
-    if (isset($_POST['add_member'])) {
+    // B. GESTION OBJECTIFS (AJOUT)
+    if (isset($_POST['add_objective'])) {
+        $text = trim($_POST['obj_text']);
+        $weight = (int)$_POST['obj_weight'];
+
+        // Vérification Total Poids
+        $stmtSum = $pdo->prepare("SELECT SUM(weight) FROM project_objectives WHERE project_id = ?");
+        $stmtSum->execute([$project_id]);
+        $currentSum = (int)$stmtSum->fetchColumn();
+
+        if (($currentSum + $weight) > 100) {
+            $message = "Erreur : Le total des pourcentages ne peut pas dépasser 100% (Actuel: $currentSum%).";
+            $msg_type = "error";
+        } else {
+            $stmt = $pdo->prepare("INSERT INTO project_objectives (project_id, text, weight) VALUES (?, ?, ?)");
+            $stmt->execute([$project_id, $text, $weight]);
+            $message = "Objectif ajouté.";
+            $msg_type = "success";
+            recalculateProgressInsideSettings($pdo, $project_id);
+        }
+    }
+
+    // C. GESTION OBJECTIFS (SUPPRESSION)
+    if (isset($_POST['delete_objective_id'])) {
+        $oid = (int)$_POST['delete_objective_id'];
+        $stmt = $pdo->prepare("DELETE FROM project_objectives WHERE id = ? AND project_id = ?");
+        $stmt->execute([$oid, $project_id]);
+        $message = "Objectif supprimé.";
+        $msg_type = "success";
+        recalculateProgressInsideSettings($pdo, $project_id);
+    }
+
+    // D. GESTION NOTES (SUPPRESSION JSON)
+    if (isset($_POST['delete_note_id'])) {
+        $noteIdToDelete = $_POST['delete_note_id'];
+        $noteFile = 'assets/notes/notes_' . $project_id . '.json';
+        
+        if (file_exists($noteFile)) {
+            $currentNotes = json_decode(file_get_contents($noteFile), true) ?? [];
+            // On filtre pour garder ceux qui n'ont pas l'ID
+            $newNotes = array_filter($currentNotes, function($n) use ($noteIdToDelete) {
+                return $n['id'] !== $noteIdToDelete;
+            });
+            // Réindexation et sauvegarde
+            file_put_contents($noteFile, json_encode(array_values($newNotes), JSON_PRETTY_PRINT));
+            $message = "Note supprimée.";
+            $msg_type = "success";
+        }
+    }
+
+    // E. MEMBRES (AJOUT/SUPPRESSION - Code existant conservé)
+    if (isset($_POST['add_member'])) { /* ... Code identique à avant ... */ 
         $username_to_add = trim($_POST['new_member_name']);
         $role_to_assign  = trim($_POST['new_member_role']);
-
-        // 1. Trouver l'ID du user
         $stmtU = $pdo->prepare("SELECT id FROM users WHERE username = ?");
         $stmtU->execute([$username_to_add]);
         $userToAdd = $stmtU->fetch(PDO::FETCH_ASSOC);
-
         if ($userToAdd) {
-            // 2. Vérifier s'il n'est pas déjà dans le projet
-            $stmtCheck = $pdo->prepare("SELECT id FROM project_members WHERE project_id = ? AND user_id = ?");
+            $stmtCheck = $pdo->prepare("SELECT project_id FROM project_members WHERE project_id = ? AND user_id = ?");
             $stmtCheck->execute([$project_id, $userToAdd['id']]);
-            
             if ($stmtCheck->rowCount() == 0) {
-                // 3. Insérer
-                $stmtInsert = $pdo->prepare("INSERT INTO project_members (project_id, user_id, role_project) VALUES (?, ?, ?)");
+                $stmtInsert = $pdo->prepare("INSERT INTO project_members (project_id, user_id, role) VALUES (?, ?, ?)");
                 $stmtInsert->execute([$project_id, $userToAdd['id'], $role_to_assign]);
-                $message = "Membre ajouté : " . htmlspecialchars($username_to_add);
-                $msg_type = "success";
-            } else {
-                $message = "Ce membre fait déjà partie du projet.";
-                $msg_type = "error";
-            }
-        } else {
-            $message = "Utilisateur introuvable.";
-            $msg_type = "error";
-        }
+                $message = "Membre ajouté."; $msg_type = "success";
+            } else { $message = "Déjà membre."; $msg_type = "error"; }
+        } else { $message = "Utilisateur introuvable."; $msg_type = "error"; }
+    }
+    if (isset($_POST['remove_user_id'])) {
+        $userIdToRemove = $_POST['remove_user_id'];
+        $stmtDel = $pdo->prepare("DELETE FROM project_members WHERE user_id = ? AND project_id = ?"); 
+        $stmtDel->execute([$userIdToRemove, $project_id]);
+        $message = "Membre retiré."; $msg_type = "success";
     }
 
-    // C. SUPPRESSION D'UN MEMBRE
-    if (isset($_POST['remove_member_id'])) {
-        $memId = $_POST['remove_member_id'];
-        $stmtDel = $pdo->prepare("DELETE FROM project_members WHERE id = ? AND project_id = ?"); // Sécurité: on vérifie le project_id
-        $stmtDel->execute([$memId, $project_id]);
-        $message = "Membre retiré du projet.";
-        $msg_type = "success";
+    // F. SUPPRESSION TOTALE
+    if (isset($_POST['delete_total_project'])) {
+        // ... (Code de suppression identique à l'étape 5 précédente) ...
+        $stmtImg = $pdo->prepare("SELECT image_url FROM projects WHERE id = ?");
+        $stmtImg->execute([$project_id]);
+        $projData = $stmtImg->fetch(PDO::FETCH_ASSOC);
+        $stmtDelProj = $pdo->prepare("DELETE FROM projects WHERE id = ?");
+        if ($stmtDelProj->execute([$project_id])) {
+            if (!empty($projData['image_url']) && file_exists($projData['image_url'])) unlink($projData['image_url']);
+            $noteFile = 'assets/notes/notes_' . $project_id . '.json';
+            if (file_exists($noteFile)) unlink($noteFile);
+            $projectFilesDir = 'assets/project_files/' . $project_id;
+            if (is_dir($projectFilesDir)) delete_folder_recursive($projectFilesDir);
+            header("Location: dashboard.php"); exit;
+        }
     }
 }
 
-// --- 3. RECUPERATION DES DONNEES ---
-
-// Infos Projet
+// --- 3. RECUPERATION DONNEES ---
 $stmt = $pdo->prepare("SELECT * FROM projects WHERE id = :id");
 $stmt->execute(['id' => $project_id]);
 $project = $stmt->fetch(PDO::FETCH_ASSOC);
-
 if (!$project) die("Projet introuvable.");
 
-// Liste des Membres
-$sqlMembres = "SELECT pm.id as link_id, pm.role_project, u.username, u.email 
-               FROM project_members pm 
-               JOIN users u ON pm.user_id = u.id 
-               WHERE pm.project_id = :pid";
-$stmtM = $pdo->prepare($sqlMembres);
-$stmtM->execute(['pid' => $project_id]);
+// Membres
+$sqlMembres = "SELECT pm.user_id, pm.role, u.username FROM project_members pm JOIN users u ON pm.user_id = u.id WHERE pm.project_id = :pid";
+$stmtM = $pdo->prepare($sqlMembres); $stmtM->execute(['pid' => $project_id]);
 $members = $stmtM->fetchAll(PDO::FETCH_ASSOC);
+
+// Objectifs
+$stmtObj = $pdo->prepare("SELECT * FROM project_objectives WHERE project_id = ? ORDER BY id DESC");
+$stmtObj->execute([$project_id]);
+$objectives = $stmtObj->fetchAll(PDO::FETCH_ASSOC);
+
+// Notes JSON
+$projectNotes = [];
+$noteFile = 'assets/notes/notes_' . $project_id . '.json';
+if (file_exists($noteFile)) $projectNotes = json_decode(file_get_contents($noteFile), true) ?? [];
 
 ?>
 
@@ -107,58 +245,21 @@ $members = $stmtM->fetchAll(PDO::FETCH_ASSOC);
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Settings : <?= htmlspecialchars($project['title']) ?></title>
-    
     <link rel="icon" type="image/x-icon" href="assets/logo_Arc0ps.ico">
     <link rel="stylesheet" href="style-dashboard.css"> 
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    
     <style>
-        /* Styles spécifiques pour le formulaire (Dark Theme) */
-        :root {
-            --input-bg: #1e1e2f;
-            --border-color: #2b3553;
-        }
-
-        .form-group { margin-bottom: 20px; }
-        .form-group label { display: block; color: #ccc; margin-bottom: 8px; font-size: 0.9em; }
-        
-        .form-control {
-            width: 100%;
-            padding: 12px;
-            background-color: var(--input-bg);
-            border: 1px solid var(--border-color);
-            border-radius: 6px;
-            color: #fff;
-            outline: none;
-            transition: border-color 0.3s;
-        }
-        .form-control:focus { border-color: var(--primary-color); }
-        
-        textarea.form-control { resize: vertical; min-height: 100px; }
-
-        /* Table des membres */
-        .members-table { width: 100%; border-collapse: collapse; margin-top: 15px; }
-        .members-table th { text-align: left; color: #888; padding: 10px; border-bottom: 1px solid #444; }
-        .members-table td { padding: 12px 10px; border-bottom: 1px solid #333; color: #fff; }
-        .members-table tr:last-child td { border-bottom: none; }
-        
-        .btn-remove { 
-            background: transparent; border: 1px solid #e74c3c; color: #e74c3c; 
-            padding: 5px 10px; border-radius: 4px; cursor: pointer; transition: 0.3s; 
-        }
+        :root { --input-bg: #1e1e2f; --border-color: #2b3553; }
+        .form-control { width: 100%; padding: 12px; background: var(--input-bg); border: 1px solid var(--border-color); border-radius: 6px; color: #fff; }
+        .members-table, .obj-table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        .members-table th, .obj-table th { text-align: left; color: #888; padding: 10px; border-bottom: 1px solid #444; }
+        .members-table td, .obj-table td { padding: 12px 10px; border-bottom: 1px solid #333; color: #fff; }
+        .btn-remove { background: transparent; border: 1px solid #e74c3c; color: #e74c3c; padding: 5px 10px; border-radius: 4px; cursor: pointer; transition: 0.3s; }
         .btn-remove:hover { background: #e74c3c; color: white; }
-
-        .btn-save {
-            background-color: var(--primary-color); color: white; border: none;
-            padding: 10px 20px; border-radius: 6px; cursor: pointer; font-weight: bold;
-        }
-        .btn-save:hover { background-color: #a450e0; }
-
-        .alert { padding: 15px; border-radius: 5px; margin-bottom: 20px; }
-        .alert-success { background-color: rgba(88, 214, 141, 0.2); border: 1px solid #58d68d; color: #58d68d; }
-        .alert-error { background-color: rgba(231, 76, 60, 0.2); border: 1px solid #e74c3c; color: #e74c3c; }
-
-        .preview-img { max-width: 100px; max-height: 60px; border-radius: 4px; object-fit: cover; margin-top: 10px; border: 1px solid #444; }
+        .preview-img { width: 100%; height: 150px; border-radius: 8px; object-fit: cover; margin-top: 10px; border: 1px solid #444; }
+        .danger-zone { border: 1px solid #e74c3c; background: rgba(231, 76, 60, 0.05); }
+        .danger-zone h3 { color: #e74c3c !important; border-bottom-color: #e74c3c !important; }
+        .btn-danger { background-color: #e74c3c; color: white; border: none; width: 100%; padding: 12px; border-radius: 8px; font-weight: bold; cursor: pointer; }
     </style>
 </head>
 <body>
@@ -168,12 +269,35 @@ $members = $stmtM->fetchAll(PDO::FETCH_ASSOC);
     <aside class="sidebar">
         <div class="logo"><i class="fas fa-cube"></i> Λrc0ps</div>
         <div class="user-profile">
-            <div class="avatar"></div>
-            <h3><?= htmlspecialchars($_SESSION['username'] ?? 'User') ?></h3>
+            <?php 
+                // 1. Image
+                $displayImg = 'assets/PhotoProfile/default_avatar.png';
+                $imgClass = 'avatar';
+                if (isset($project) && !empty($project['image_url']) && file_exists($project['image_url'])) {
+                    $displayImg = $project['image_url'];
+                    $imgClass = 'project-avatar-sidebar'; 
+                } elseif (isset($_SESSION['user_avatar']) && !empty($_SESSION['user_avatar'])) {
+                     $displayImg = $_SESSION['user_avatar'];
+                }
+            ?>
+            <img src="<?= htmlspecialchars($displayImg) ?>" class="<?= $imgClass ?>" alt="Icone">
+            
+            <div style="margin-top:10px;">
+                <?php if(isset($project)): ?>
+                    <h3 style="margin-bottom:5px; color:white; font-weight:bold;">
+                        <?= htmlspecialchars_decode(substr($project['title'], 0, 20)) ?>
+                    </h3>
+                    <small style="color:#ba54f5; font-weight:bold;">
+                        <?= htmlspecialchars($_SESSION['username']) ?>
+                    </small>
+                <?php else: ?>
+                    <h3><?= htmlspecialchars($_SESSION['username']) ?></h3>
+                <?php endif; ?>
+            </div>
         </div>
         <nav class="menu">
             <a href="dashboard.php" class="menu-item"><i class="fas fa-home"></i> Dashboard</a>
-            <a href="project_details.php?id=<?= $project_id ?>" class="menu-item"><i class="fas fa-folder-open"></i> Projet Actuel</a>
+            <a href="avancement.php?id=<?= $project_id ?>" class="menu-item"><i class="fas fa-folder-open"></i> Projet Actuel</a>
             <a href="#" class="menu-item active"><i class="fas fa-cog"></i> Settings</a>
         </nav>
         <div class="footer">© Corporation</div>
@@ -183,96 +307,159 @@ $members = $stmtM->fetchAll(PDO::FETCH_ASSOC);
         
         <header class="header">
             <div class="welcome-section">
-                <h1>Configuration du Projet</h1>
+                <h1>Configuration</h1>
                 <p class="time">ID: <?= $project_id ?></p>
             </div>
         </header>
 
         <?php if (!empty($message)): ?>
-            <div class="alert alert-<?= $msg_type ?>">
-                <?= htmlspecialchars($message) ?>
-            </div>
+            <div class="alert alert-<?= $msg_type ?>"><?= htmlspecialchars($message) ?></div>
         <?php endif; ?>
 
-        <div class="project-grid">
+        <div class="project-grid-detail"> 
             
-            <div class="section-card">
-                <h3><i class="fas fa-edit"></i> Informations Générales</h3>
-                
-                <form method="POST" action="">
-                    <input type="hidden" name="update_general" value="1">
+            <div class="left-column">
+                <div class="section-card">
+                    <h3><i class="fas fa-edit"></i> Informations Générales</h3>
                     
-                    <div class="form-group">
-                        <label>Nom du Projet</label>
-                        <input type="text" name="title" class="form-control" value="<?= htmlspecialchars($project['title']) ?>" required>
-                    </div>
+                    <form method="POST" action="" enctype="multipart/form-data">
+                        <input type="hidden" name="update_general" value="1">
+                        
+                        <div class="form-group">
+                            <label>Nom du Projet</label>
+                            <input type="text" name="title" class="form-control" value="<?= htmlspecialchars($project['title']) ?>" required>
+                        </div>
 
-                    <div class="form-group">
-                        <label>Description</label>
-                        <textarea name="description" class="form-control"><?= htmlspecialchars($project['description']) ?></textarea>
-                    </div>
+                        <div class="form-group">
+                            <label>Description</label>
+                            <textarea name="description" class="form-control" rows="4"><?= htmlspecialchars($project['description']) ?></textarea>
+                        </div>
 
-                    <div class="form-group">
-                        <label>URL de l'image (Bannière)</label>
-                        <input type="text" name="image_url" class="form-control" value="<?= htmlspecialchars($project['image_url'] ?? '') ?>" placeholder="https://...">
-                        <?php if(!empty($project['image_url'])): ?>
-                            <img src="<?= htmlspecialchars($project['image_url']) ?>" class="preview-img" alt="Aperçu">
-                        <?php endif; ?>
-                    </div>
+                        <div class="form-group">
+                            <label>Bannière du projet</label>
+                            
+                            <?php if(!empty($project['image_url']) && file_exists($project['image_url'])): ?>
+                                <div style="margin-bottom: 15px; position: relative;">
+                                    <img src="<?= htmlspecialchars($project['image_url']) ?>" class="preview-img" style="width: 100%; height: 180px; object-fit: cover; border-radius: 10px; border: 1px solid #444;">
+                                </div>
+                            <?php endif; ?>
 
-                    <div style="text-align: right;">
-                        <button type="submit" class="btn-save"><i class="fas fa-save"></i> Enregistrer</button>
-                    </div>
-                </form>
+                            <input type="file" name="banner_file" id="banner_file_input" accept="image/*">
+                            
+                            <label for="banner_file_input" class="custom-file-upload">
+                                <i class="fas fa-cloud-upload-alt"></i> Changer l'image de bannière
+                            </label>
+                            
+                            <span id="file-chosen">Aucun fichier choisi</span>
+                        </div>
+
+                        <div style="text-align: right; margin-top: 20px;">
+                            <button type="submit" class="btn-save"><i class="fas fa-save"></i> Enregistrer les modifications</button>
+                        </div>
+                    </form>
+                </div>
+
+                <div class="section-card">
+                    <h3><i class="fas fa-tasks"></i> Gestion des Objectifs</h3>
+                    
+                    <form method="POST" action="" style="display: flex; gap: 10px; margin-bottom: 20px;">
+                        <input type="hidden" name="add_objective" value="1">
+                        <input type="text" name="obj_text" class="form-control" placeholder="Nouvel objectif" required style="flex:2;">
+                        <input type="number" name="obj_weight" class="form-control" placeholder="%" min="1" max="100" required style="flex:1;">
+                        <button type="submit" class="btn-save" style="width:auto; margin:0;"><i class="fas fa-plus"></i></button>
+                    </form>
+
+                    <table class="obj-table">
+                        <thead><tr><th>Objectif</th><th>Poids</th><th>Action</th></tr></thead>
+                        <tbody>
+                            <?php 
+                            $totalWeight = 0;
+                            if (count($objectives) > 0): 
+                                foreach ($objectives as $obj): 
+                                    $totalWeight += $obj['weight'];
+                            ?>
+                                <tr>
+                                    <td><?= htmlspecialchars($obj['text']) ?></td>
+                                    <td><?= $obj['weight'] ?>%</td>
+                                    <td style="text-align: right;">
+                                        <form method="POST" action="" onsubmit="return confirm('Supprimer ?');">
+                                            <input type="hidden" name="delete_objective_id" value="<?= $obj['id'] ?>">
+                                            <button type="submit" class="btn-remove"><i class="fas fa-trash"></i></button>
+                                        </form>
+                                    </td>
+                                </tr>
+                            <?php endforeach; else: ?>
+                                <tr><td colspan="3" style="text-align: center; color: #666;">Aucun objectif.</td></tr>
+                            <?php endif; ?>
+                        </tbody>
+                        <tfoot>
+                            <tr>
+                                <td style="font-weight:bold; color:var(--purple-main);">TOTAL</td>
+                                <td style="font-weight:bold; <?= $totalWeight > 100 ? 'color:#e74c3c;' : 'color:#58d68d;' ?>"><?= $totalWeight ?>%</td>
+                                <td></td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+
+                <div class="section-card danger-zone">
+                    <h3><i class="fas fa-exclamation-triangle"></i> Zone de Danger</h3>
+                    <p style="color:#aaa; font-size:0.9rem; margin-bottom:15px;">
+                        Suppression définitive du projet, des fichiers et des notes.
+                    </p>
+                    <form method="POST" onsubmit="return confirm('Êtes-vous ABSOLUMENT SÛR ?');">
+                        <input type="hidden" name="delete_total_project" value="1">
+                        <button type="submit" class="btn-danger"><i class="fas fa-trash-alt"></i> Supprimer définitivement</button>
+                    </form>
+                </div>
             </div>
 
-            <div class="section-card">
-                <h3><i class="fas fa-users-cog"></i> Gestion des Membres</h3>
-                
-                <form method="POST" action="" style="background: rgba(255,255,255,0.05); padding: 15px; border-radius: 6px; margin-bottom: 20px;">
-                    <input type="hidden" name="add_member" value="1">
-                    <p style="margin-top:0; font-weight:bold; font-size:0.9em;">Ajouter un collaborateur</p>
-                    <div style="display: flex; gap: 10px;">
-                        <input type="text" name="new_member_name" class="form-control" placeholder="Nom d'utilisateur exact" required>
-                        <input type="text" name="new_member_role" class="form-control" placeholder="Rôle (ex: Dev)" required>
-                        <button type="submit" class="btn-save" style="white-space: nowrap;"><i class="fas fa-plus"></i> Ajouter</button>
-                    </div>
-                </form>
-
-                <table class="members-table">
-                    <thead>
-                        <tr>
-                            <th>Utilisateur</th>
-                            <th>Rôle</th>
-                            <th style="text-align: right;">Action</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php if (count($members) > 0): ?>
+            <div class="right-column">
+                <div class="section-card">
+                    <h3><i class="fas fa-users-cog"></i> Membres</h3>
+                    <form method="POST" action="" style="margin-bottom: 20px; display:flex; gap:5px;">
+                        <input type="hidden" name="add_member" value="1">
+                        <input type="text" name="new_member_name" class="form-control" placeholder="Pseudo" required>
+                        <input type="text" name="new_member_role" class="form-control" placeholder="Rôle" required>
+                        <button type="submit" class="btn-save" style="width:auto; margin:0;"><i class="fas fa-plus"></i></button>
+                    </form>
+                    <table class="members-table">
+                        <tbody>
                             <?php foreach ($members as $mem): ?>
                                 <tr>
-                                    <td>
-                                        <i class="fas fa-user-circle"></i> <?= htmlspecialchars($mem['username']) ?>
-                                    </td>
-                                    <td>
-                                        <span style="background: #444; padding: 2px 8px; border-radius: 10px; font-size: 0.8em;">
-                                            <?= htmlspecialchars($mem['role_project']) ?>
-                                        </span>
-                                    </td>
+                                    <td><i class="fas fa-user-circle"></i> <?= htmlspecialchars($mem['username']) ?></td>
+                                    <td><small><?= htmlspecialchars($mem['role']) ?></small></td>
                                     <td style="text-align: right;">
-                                        <form method="POST" action="" onsubmit="return confirm('Retirer ce membre ?');">
-                                            <input type="hidden" name="remove_member_id" value="<?= $mem['link_id'] ?>">
+                                        <form method="POST" action="" onsubmit="return confirm('Retirer ?');">
+                                            <input type="hidden" name="remove_user_id" value="<?= $mem['user_id'] ?>">
                                             <button type="submit" class="btn-remove"><i class="fas fa-trash"></i></button>
                                         </form>
                                     </td>
                                 </tr>
                             <?php endforeach; ?>
-                        <?php else: ?>
-                            <tr><td colspan="3" style="text-align: center; color: #666;">Aucun membre dans l'équipe.</td></tr>
-                        <?php endif; ?>
-                    </tbody>
-                </table>
+                        </tbody>
+                    </table>
+                </div>
 
+                <div class="section-card">
+                    <h3><i class="fas fa-sticky-note"></i> Gestion des Notes</h3>
+                    <?php if(count($projectNotes) > 0): ?>
+                        <div style="max-height: 400px; overflow-y: auto;">
+                            <?php foreach ($projectNotes as $note): ?>
+                                <div style="background: rgba(255,255,255,0.05); padding:10px; margin-bottom:10px; border-radius:5px; position:relative;">
+                                    <small style="color:var(--purple-main); font-weight:bold;"><?= htmlspecialchars($note['auteur']) ?> - <?= $note['date'] ?></small>
+                                    <p style="margin:5px 0; font-size:0.9rem;"><?= htmlspecialchars_decode(substr($note['contenu'], 0, 50)) ?>...</p>
+                                    <form method="POST" style="position:absolute; top:5px; right:5px;">
+                                        <input type="hidden" name="delete_note_id" value="<?= $note['id'] ?>">
+                                        <button type="submit" class="btn-remove" style="padding:2px 6px;"><i class="fas fa-times"></i></button>
+                                    </form>
+                                </div>
+                            <?php endforeach; ?>
+                        </div>
+                    <?php else: ?>
+                        <p style="color:#666;">Aucune note.</p>
+                    <?php endif; ?>
+                </div>
             </div>
 
         </div>
@@ -280,6 +467,17 @@ $members = $stmtM->fetchAll(PDO::FETCH_ASSOC);
     </main>
 
 </div>
+<script>
+    // Petit script pour afficher le nom du fichier sélectionné
+    const actualBtn = document.getElementById('banner_file_input');
+    const fileChosen = document.getElementById('file-chosen');
 
+    if(actualBtn) {
+        actualBtn.addEventListener('change', function(){
+            fileChosen.textContent = this.files[0].name;
+            fileChosen.style.color = '#58d68d'; // Vert pour confirmer
+        });
+    }
+</script>
 </body>
 </html>

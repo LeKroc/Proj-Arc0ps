@@ -72,13 +72,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_project'])) {
         }
 
         // Insertion BDD
-        $sql = "INSERT INTO projects (owner_id, title, description, created_at, updated_at, is_pinned, image_url) VALUES (?, ?, ?, NOW(), NOW(), 0, ?)";
+        $sql = "INSERT INTO projects (owner_id, title, description, created_at, updated_at, is_pinned, image_url, status, progression) VALUES (?, ?, ?, NOW(), NOW(), 0, ?, 'En Cours', 0)";
         $stmt = $pdo->prepare($sql);
-        $stmt->execute([$owner, $name, $desc, $imagePath]);
+        
+        if ($stmt->execute([$owner, $title, $desc, $imagePath])) {
+            
+            // --- NOUVEAU : On ajoute le créateur comme OWNER dans les membres ---
+            $newProjectId = $pdo->lastInsertId();
+            $stmtMember = $pdo->prepare("INSERT INTO project_members (project_id, user_id, role) VALUES (?, ?, 'owner')");
+            $stmtMember->execute([$newProjectId, $owner]);
+            // --------------------------------------------------------------------
 
-        // Rafraichir la page
-        header("Location: " . $_SERVER['PHP_SELF']);
-        exit;
+            header("Location: " . $_SERVER['PHP_SELF']);
+            exit;
+        }
     }
 }
 

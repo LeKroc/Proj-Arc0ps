@@ -1,21 +1,30 @@
-/* --- CONFIGURATION GLOBALE --- */
-:root {
+/* =========================================
+   1. CONFIGURATION GLOBALE & VARIABLES
+   ========================================= */
+   :root {
     --bg-dark: #1e1e2f;       /* Fond principal */
-    --sidebar-bg: #27293d;    /* Fond sidebar */
+    --sidebar-bg: #27293d;    /* Fond sidebar & Cartes */
     --text-white: #ffffff;
     --text-grey: #9a9a9a;
     
     /* IDENTITÉ ARCOPS (VIOLET) */
     --purple-main: #ba54f5;
     --purple-gradient: linear-gradient(to bottom right, #e14eca, #ba54f5);
+    
+    /* ACCENTS */
+    --accent-green: #58d68d;
+    --accent-red: #e74c3c;
+    --accent-yellow: #f1c40f;
+    
     --card-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+    --separator-color: rgba(255, 255, 255, 0.1);
 }
 
 * {
     margin: 0;
     padding: 0;
     box-sizing: border-box;
-    font-family: 'Poppins', sans-serif;
+    font-family: 'Poppins', 'Segoe UI', Tahoma, sans-serif;
 }
 
 body {
@@ -25,14 +34,140 @@ body {
     overflow: hidden; /* Empêche le scroll sur tout le corps */
 }
 
-/* --- LAYOUT PRINCIPAL (Flexbox) --- */
+/* =========================================
+   2. LAYOUT PRINCIPAL (FLEXBOX)
+   ========================================= */
 .dashboard-container {
     display: flex;
     height: 100%;
     width: 100%;
 }
 
-/* --- CONTENU PRINCIPAL (Centre) --- */
+/* --- SIDEBAR (Gauche) --- */
+.sidebar {
+    width: 260px;
+    background-color: var(--sidebar-bg);
+    display: flex;
+    flex-direction: column;
+    padding: 30px 20px;
+    border-right: 1px solid var(--separator-color);
+    height: 100%;
+    flex-shrink: 0;
+    z-index: 100;
+}
+
+/* --- SIDEBAR : IMAGE PROJET --- */
+.sidebar .project-avatar-sidebar {
+    width: 80px;
+    height: 80px;
+    border-radius: 15px; /* Carré arrondi */
+    object-fit: cover;
+    margin: 0 auto 15px auto;
+    border: 2px solid var(--purple-main);
+    display: block;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+}
+
+/* Ajustement du nom en dessous */
+.sidebar .user-profile h3 {
+    margin-top: 10px;
+    font-size: 1rem;
+    color: #ccc;
+}
+.sidebar .user-profile h3 strong {
+    color: white;
+    display: block;
+    font-size: 1.1rem;
+    margin-bottom: 2px;
+}
+
+.logo {
+    font-size: 1.6rem;
+    font-weight: bold;
+    margin-bottom: 50px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    color: var(--text-white);
+    letter-spacing: 1px;
+}
+.logo i { color: var(--purple-main); }
+
+.user-profile {
+    text-align: center;
+    margin-bottom: 40px;
+    padding-bottom: 25px;
+    border-bottom: 1px solid var(--separator-color);
+}
+
+.avatar {
+    width: 90px; height: 90px;
+    object-fit: cover;
+    border-radius: 50%;
+    margin: 0 auto 15px auto;
+    border: 3px solid var(--purple-main);
+    display: block;
+    padding: 3px;
+    background-color: var(--bg-dark);
+}
+
+.user-profile h3 {
+    font-size: 1.1rem;
+    font-weight: 500;
+}
+
+/* MENU NAVIGATION */
+.menu {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    flex-grow: 1;
+}
+
+.menu-item {
+    text-decoration: none;
+    color: var(--text-grey);
+    padding: 14px 18px;
+    border-radius: 10px;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    font-size: 1rem;
+    font-weight: 500;
+}
+
+.menu-item:hover {
+    background-color: rgba(186, 84, 245, 0.1);
+    color: var(--text-white);
+    transform: translateX(5px);
+}
+
+.menu-item.active {
+    background-color: var(--purple-main);
+    color: white;
+    box-shadow: 0 4px 15px rgba(186, 84, 245, 0.3);
+}
+
+.menu-item i { width: 24px; text-align: center; }
+
+/* BOUTON LOGOUT */
+.logout-container {
+    padding-top: 20px;
+    border-top: 1px solid var(--separator-color);
+}
+.btn-logout { color: #ff6b6b !important; }
+.btn-logout:hover { background-color: rgba(255, 107, 107, 0.1) !important; }
+
+.footer {
+    margin-top: 20px;
+    font-size: 0.8rem;
+    color: var(--text-grey);
+    text-align: center;
+    opacity: 0.5;
+}
+
+/* --- MAIN CONTENT (Droite) --- */
 .main-content {
     flex: 1;
     padding: 40px;
@@ -41,41 +176,29 @@ body {
     overflow-y: auto; /* Scroll uniquement ici */
 }
 
-/* --- GESTION DES ONGLETS (JS) --- */
-.content-section {
-    display: none; /* Caché par défaut */
-}
-
-/* Classe ajoutée par JS pour afficher l'onglet */
-.active-section {
-    display: block;
-    animation: fadeIn 0.4s ease-out;
-}
+/* =========================================
+   3. GESTION DES ONGLETS & SECTIONS
+   ========================================= */
+.content-section { display: none; }
+.active-section { display: block; animation: fadeIn 0.4s ease-out; }
 
 @keyframes fadeIn {
     from { opacity: 0; transform: translateY(10px); }
     to { opacity: 1; transform: translateY(0); }
 }
 
-/* --- HEADER --- */
+/* HEADER */
 .header {
     margin-bottom: 30px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    border-bottom: 1px solid var(--separator-color);
     padding-bottom: 20px;
 }
+.header h1 { font-size: 2rem; font-weight: 600; }
+.time { color: var(--purple-main); margin-top: 5px; font-weight: 500; }
 
-.header h1 {
-    font-size: 2rem;
-    font-weight: 600;
-}
-
-.time {
-    color: var(--purple-main);
-    margin-top: 5px;
-    font-weight: 500;
-}
-
-/* --- ONGLET HOME : STATS CARDS --- */
+/* =========================================
+   4. STATS CARDS (DASHBOARD)
+   ========================================= */
 .stats-container {
     display: flex;
     gap: 30px;
@@ -95,33 +218,16 @@ body {
     box-shadow: var(--card-shadow);
     transition: transform 0.3s ease;
 }
+.card:hover { transform: translateY(-5px); }
 
-.card:hover {
-    transform: translateY(-5px);
-}
+.icon-wrapper { font-size: 3rem; opacity: 0.8; }
+.card-info { text-align: right; }
+.card-info .number { display: block; font-size: 2.2rem; font-weight: bold; }
+.card-info .label { font-size: 1rem; opacity: 0.9; text-transform: uppercase; }
 
-.icon-wrapper {
-    font-size: 3rem;
-    opacity: 0.8;
-}
-
-.card-info {
-    text-align: right;
-}
-
-.card-info .number {
-    display: block;
-    font-size: 2.2rem;
-    font-weight: bold;
-}
-
-.card-info .label {
-    font-size: 1rem;
-    opacity: 0.9;
-    text-transform: uppercase;
-}
-
-/* --- ONGLET PROJETS : GRILLE --- */
+/* =========================================
+   5. GRILLE PROJETS & CARTES
+   ========================================= */
 .projects-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
@@ -135,67 +241,46 @@ body {
     box-shadow: var(--card-shadow);
     transition: transform 0.3s ease, border-color 0.3s;
     border: 1px solid transparent;
-    position: relative;
+    position: relative; /* Pour positionner l'étoile */
+    cursor: pointer;
+    text-decoration: none;
+    display: block;
 }
 
 .project-card:hover {
     transform: translateY(-5px);
-    border-color: var(--purple-main); /* Bordure violette au survol */
+    border-color: var(--purple-main);
 }
 
 .project-card img {
     width: 100%;
     height: 160px;
     object-fit: cover;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    border-bottom: 1px solid var(--separator-color);
 }
 
-/* --- Conteneur Principal --- */
 .project-info {
     padding: 20px;
+    color: var(--text-white);
+}
+
+.project-info h3 {
     margin-bottom: 10px;
     font-size: 1.2rem;
     color: var(--text-white);
 }
 
-/* --- Gestion Globale des Liens --- */
-/* Cible TOUS les liens dans la carte par défaut */
-.project-info a {
-    text-decoration: none !important; /* Force la suppression du soulignement */
-    color: var(--text-white);         /* Couleur par défaut (blanc) */
-    transition: color 0.2s ease;      /* Ajout sympa pour l'effet de survol */
-}
-
-/* Cas particulier : Le titre (hérite simplement des règles ci-dessus) */
-.project-info h3 a {
-    text-decoration: none;
-    color: inherit;
-}
-
-/* --- Paragraphes --- */
 .project-info p {
-    text-decoration: none;
     color: var(--text-grey);
     font-size: 0.9rem;
     margin-bottom: 15px;
     line-height: 1.4;
 }
 
-/* --- Éléments Violets (Date et Liens de progression) --- */
-
-/* 1. La Date */
 .project-date {
     display: block;
     font-size: 0.8rem;
     font-weight: 600;
-    color: var(--purple-main); /* Prioritaire sur le blanc */
-}
-
-/* 2. Le lien de progression */
-/* J'ai regroupé les sélecteurs bizarres. 
-   L'idéal est d'ajouter la classe HTML "progression-link" sur ton <a> */
-.project-info a.progression-link,
-.project-info p:last-of-type a {
     color: var(--purple-main);
 }
 
@@ -205,274 +290,83 @@ body {
     font-size: 1.1rem;
 }
 
-/* --- ONGLET SETTINGS : FORMULAIRES --- */
-.settings-container {
-    max-width: 600px;
-    background-color: var(--sidebar-bg);
-    padding: 30px;
-    border-radius: 15px;
-    box-shadow: var(--card-shadow);
+/* =========================================
+   6. ÉLÉMENTS UI (BOUTONS, FORMS, MODAL)
+   ========================================= */
+.header-projects {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
 }
 
-.settings-card h2 {
-    margin-bottom: 25px;
-    color: var(--purple-main);
-    font-size: 1.5rem;
+/* Boutons */
+.btn-add-project {
+    background-color: #2ecc71;
+    color: white;
+    padding: 10px 20px;
+    border-radius: 8px;
+    border: none;
+    cursor: pointer;
+    display: flex; align-items: center; gap: 8px;
+    font-weight: bold;
+    transition: background 0.3s;
 }
+.btn-add-project:hover { background-color: #27ae60; }
 
-.form-group {
-    margin-bottom: 20px;
-}
-
-.form-group label {
-    display: block;
-    margin-bottom: 8px;
-    color: var(--text-grey);
-    font-weight: 500;
-}
-
-.form-group input, 
-.form-group textarea { /* <--- Ajout ici */
+.btn-save, .btn-submit, .btn-action {
+    background: var(--purple-gradient);
+    color: white;
+    border: none;
+    padding: 12px 20px;
+    border-radius: 8px;
     width: 100%;
-    padding: 12px;
+    cursor: pointer;
+    font-weight: bold;
+    margin-top: 10px;
+    transition: box-shadow 0.2s;
+    text-align: center;
+    display: block;
+    font-size: 0.95rem;
+}
+.btn-save:hover, .btn-submit:hover, .btn-action:hover {
+    box-shadow: 0 4px 15px rgba(186, 84, 245, 0.4);
+}
+
+.btn-back {
+    background-color: #444;
+    border: none;
+    padding: 8px 15px;
+    border-radius: 5px;
+    color: var(--text-white);
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 20px;
+    transition: background 0.3s;
+    font-size: 0.9rem;
+    width: fit-content;
+}
+.btn-back:hover { background-color: #555; }
+
+/* Formulaires */
+.form-group { margin-bottom: 15px; }
+.form-group label { display: block; margin-bottom: 8px; font-weight: 500; color: var(--text-grey); }
+.form-group input, .form-group textarea {
+    width: 100%; padding: 12px;
     background-color: var(--bg-dark);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    border: 1px solid var(--separator-color);
     border-radius: 8px;
     color: var(--text-white);
     font-size: 1rem;
-    resize: vertical; /* Permet de redimensionner la bio */
     font-family: inherit;
 }
-
-.form-group textarea:focus,
-.form-group input:focus {
-    outline: none;
-    border-color: var(--purple-main);
+.form-group textarea:focus, .form-group input:focus {
+    outline: none; border-color: var(--purple-main);
 }
 
-.btn-save {
-    background: var(--purple-gradient);
-    color: var(--text-white);
-    border: none;
-    padding: 14px 20px;
-    border-radius: 10px;
-    cursor: pointer;
-    font-weight: 600;
-    font-size: 1rem;
-    width: 100%;
-    margin-top: 10px;
-    transition: transform 0.2s, box-shadow 0.2s;
-    box-shadow: 0 4px 10px rgba(186, 84, 245, 0.3);
-}
-
-.btn-save:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 6px 20px rgba(186, 84, 245, 0.5);
-}
-
-/* 2. Alertes (Succès / Erreur) */
-.alert {
-    padding: 15px;
-    margin-bottom: 20px;
-    border-radius: 10px;
-    font-size: 0.95rem;
-    display: flex;
-    align-items: center;
-    font-weight: 500;
-}
-
-.alert-success {
-    background-color: rgba(46, 204, 113, 0.15); /* Vert transparent */
-    border: 1px solid #2ecc71;
-    color: #2ecc71;
-}
-
-.alert-error {
-    background-color: rgba(231, 76, 60, 0.15); /* Rouge transparent */
-    border: 1px solid #e74c3c;
-    color: #e74c3c;
-}
-
-/* 3. Badges de Statut (Pour la liste des projets) */
-.status-badge {
-    padding: 4px 10px;
-    border-radius: 6px;
-    font-size: 0.75rem;
-    font-weight: bold;
-    display: inline-block;
-    letter-spacing: 0.5px;
-}
-
-.status-success { background: rgba(46, 204, 113, 0.2); color: #2ecc71; } /* Terminé */
-.status-primary { background: rgba(52, 152, 219, 0.2); color: #3498db; } /* En cours */
-.status-warning { background: rgba(241, 196, 15, 0.2); color: #f1c40f; } /* Attente */
-.status-error   { background: rgba(231, 76, 60, 0.2); color: #e74c3c; } /* Bloqué */
-
-/* 4. Petites Barres de Progression (Dans les cartes projets) */
-.progress-bar-small-container {
-    margin-top: 15px;
-    width: 100%;
-}
-
-.progress-bar-small-container small {
-    display: block;
-    margin-bottom: 5px;
-    color: var(--text-grey);
-    font-size: 0.8rem;
-}
-
-.progress-bar-small {
-    width: 100%;
-    height: 6px;
-    background-color: rgba(255, 255, 255, 0.1);
-    border-radius: 3px;
-    overflow: hidden;
-}
-
-.progress-fill-small {
-    height: 100%;
-    background: var(--purple-gradient);
-    border-radius: 3px;
-}
-
-/* --- SIDEBAR (Gauche) --- */
-.sidebar {
-    width: 260px;
-    background-color: var(--sidebar-bg);
-    display: flex;
-    flex-direction: column;
-    padding: 30px 20px;
-    border-left: 1px solid rgba(255, 255, 255, 0.05);
-    height: 100%;
-    z-index: 10;
-}
-
-.logo {
-    font-size: 1.6rem;
-    font-weight: bold;
-    margin-bottom: 50px;
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    color: var(--text-white);
-    letter-spacing: 1px;
-}
-
-.logo i {
-    color: var(--purple-main);
-}
-
-.user-profile {
-    text-align: center;
-    margin-bottom: 40px;
-    padding-bottom: 25px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-/* CORRECTION DE L'AVATAR (IMG) */
-.avatar {
-    width: 90px;
-    height: 90px;
-    object-fit: cover; /* Important pour ne pas déformer l'image */
-    border-radius: 50%;
-    margin: 0 auto 15px auto;
-    border: 3px solid var(--purple-main);
-    display: block;
-    padding: 3px; /* Espace entre l'image et la bordure violette */
-    background-color: var(--bg-dark);
-}
-
-.user-profile h3 {
-    font-size: 1.1rem;
-    font-weight: 500;
-}
-
-/* MENU NAVIGATION */
-.menu {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-}
-
-.menu-item {
-    text-decoration: none;
-    color: var(--text-grey);
-    padding: 14px 18px;
-    border-radius: 10px;
-    transition: all 0.3s ease;
-    display: flex;
-    align-items: center;
-    gap: 15px;
-    font-size: 1rem;
-    font-weight: 500;
-}
-
-.menu-item:hover {
-    background-color: rgba(186, 84, 245, 0.1); /* Violet très transparent */
-    color: var(--text-white);
-    transform: translateX(5px);
-}
-
-.menu-item.active {
-    background-color: var(--purple-main);
-    color: white;
-    box-shadow: 0 4px 15px rgba(186, 84, 245, 0.3);
-}
-
-/* Largeur fixe pour les icônes afin d'aligner le texte */
-.menu-item i {
-    width: 24px;
-    text-align: center;
-}
-
-.footer {
-    margin-top: auto;
-    font-size: 0.8rem;
-    color: var(--text-grey);
-    text-align: center;
-    opacity: 0.5;
-}
-
-
-/* bouton logout */
-sidebar {
-    display: flex;
-    flex-direction: column;
-    justify-content: space-between; 
-}
-.menu {
-    flex-grow: 1;
-}
-
-.logout-container {
-    padding-top: 20px;
-    border-top: 1px solid rgba(255,255,255,0.1);
-}
-.btn-logout {
-    color: #ff6b6b !important;
-}
-.btn-logout:hover {
-    background-color: rgba(255, 107, 107, 0.1) !important;
-} 
-
-.content-section {
-    display: none; 
-    animation: fadeIn 0.4s ease-out;
-}
-
-.active-section {
-    display: block; 
-}
-
-@keyframes fadeIn {
-    from { opacity: 0; transform: translateY(10px); }
-    to { opacity: 1; transform: translateY(0); }
-}
-
-input[type="file"] {
-    display: none;
-}
-
+/* Input File Custom */
+input[type="file"] { display: none; }
 .file-label {
     display: inline-block;
     background-color: var(--bg-dark);
@@ -485,158 +379,283 @@ input[type="file"] {
     text-align: center;
     transition: 0.3s;
 }
-
 .file-label:hover {
     background-color: rgba(186, 84, 245, 0.1);
     color: var(--text-white);
     border-style: solid;
 }
 
-.file-label i {
-    margin-right: 8px;
-}
-
-.header-projects {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 20px;
-}
-
-.btn-add-project {
-    background-color: #2ecc71;
-    color: white;
-    padding: 10px 20px;
-    border-radius: 8px;
-    text-decoration: none;
-    font-weight: bold;
-    border: none;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    transition: background 0.3s;
-    font-size: 14px;
-}
-
-.btn-add-project:hover { background-color: #27ae60; }
-
+/* Modal */
 .modal {
-    display: none;
-    position: fixed; 
-    z-index: 1000; 
-    left: 0; top: 0;
-    width: 100%; height: 100%; 
-    background-color: rgba(0,0,0,0.6);
-    backdrop-filter: blur(5px);
+    display: none; position: fixed; z-index: 1000; 
+    left: 0; top: 0; width: 100%; height: 100%; 
+    background-color: rgba(0,0,0,0.6); backdrop-filter: blur(5px);
 }
-
 .modal-content {
-    background-color: #fff;
-    margin: 10% auto;
-    padding: 25px;
-    border-radius: 15px;
-    width: 90%;
-    max-width: 500px;
+    background-color: #fff; color: #333; /* Modal blanc pour contraste */
+    margin: 10% auto; padding: 25px;
+    border-radius: 15px; width: 90%; max-width: 500px;
     box-shadow: 0 10px 30px rgba(0,0,0,0.3);
-    position: relative;
-    animation: slideDown 0.3s;
+    position: relative; animation: slideDown 0.3s;
+}
+.modal-content h2 { color: var(--purple-main); margin-bottom: 20px; }
+.modal-content label { color: #333; } /* Texte sombre dans modal blanc */
+.modal-content input, .modal-content textarea {
+    background-color: #f9f9f9; color: #333; border: 1px solid #ddd;
 }
 
 @keyframes slideDown {
     from { transform: translateY(-50px); opacity: 0; }
     to { transform: translateY(0); opacity: 1; }
 }
-
-.close-modal {
-    position: absolute;
-    right: 20px; top: 15px;
-    font-size: 28px;
-    cursor: pointer;
-    color: #aaa;
-}
+.close-modal { position: absolute; right: 20px; top: 15px; font-size: 28px; cursor: pointer; color: #aaa; }
 .close-modal:hover { color: #333; }
 
-.close-modal:hover { color: #333; }
+/* Alertes */
+.alert { padding: 15px; margin-bottom: 20px; border-radius: 10px; font-size: 0.95rem; font-weight: 500; }
+.alert-success { background-color: rgba(46, 204, 113, 0.15); border: 1px solid #2ecc71; color: #2ecc71; }
+.alert-error { background-color: rgba(231, 76, 60, 0.15); border: 1px solid #e74c3c; color: #e74c3c; }
 
-.form-group { margin-bottom: 15px; }
-.form-group label { display: block; margin-bottom: 5px; font-weight: bold; color: #333; }
-.form-group input, .form-group textarea {
-    width: 100%; padding: 10px;
-    border: 1px solid #ddd; border-radius: 5px;
-    box-sizing: border-box;
-    font-family: inherit;
+/* =========================================
+   7. ÉLÉMENTS SPÉCIFIQUES (BADGES, PIN, PROG)
+   ========================================= */
+
+/* Badges Statut */
+.status-badge {
+    padding: 4px 10px; border-radius: 6px;
+    font-size: 0.75rem; font-weight: bold;
+    display: inline-block; letter-spacing: 0.5px;
 }
+.status-success { background: rgba(46, 204, 113, 0.2); color: #2ecc71; }
+.status-primary { background: rgba(52, 152, 219, 0.2); color: #3498db; }
+.status-warning { background: rgba(241, 196, 15, 0.2); color: #f1c40f; }
+.status-error   { background: rgba(231, 76, 60, 0.2); color: #e74c3c; }
 
-.btn-submit {
-    background: var(--purple-gradient);
-    color: white;
-    border: none;
-    padding: 12px 20px;
-    border-radius: 8px;
+/* Barre Progression (Petite & Grande) */
+.progress-bar, .progress-bar-small {
     width: 100%;
-    cursor: pointer;
-    font-weight: bold;
-    margin-top: 10px;
+    background-color: var(--separator-color);
+    border-radius: 3px;
+    overflow: hidden;
 }
-.btn-submit:hover {
-    box-shadow: 0 4px 15px rgba(186, 84, 245, 0.4);
-}
+.progress-bar-small { height: 6px; }
+.progress-bar { height: 15px; border-radius: 5px; margin-top: 10px; }
 
-.pin-form {
-    position: absolute;
-    top: 10px;
-    right: 10px;
-    z-index: 10; /* Pour être au-dessus de l'image */
+.progress-fill, .progress-fill-small {
+    height: 100%;
+    background: var(--purple-gradient); /* Par défaut violet */
+    border-radius: 3px;
+    transition: width 0.5s ease-out;
 }
+/* Sur la page avancement, on utilise le vert pour l'accent */
+.project-details-container .progress-fill { background-color: var(--accent-green); }
 
+/* Épingle (Pin) */
 .pin-container {
-    position: absolute;
-    top: 12px;  /* Distance du haut */
-    left: 12px; /* Distance de la GAUCHE (C'est ici le changement) */
-    z-index: 20; /* Pour être sûr d'être au-dessus de l'image */
+    position: absolute; top: 12px; left: 12px; z-index: 20;
 }
-
 .btn-pin {
-    /* Fond sombre flouté (Glassmorphism) pour lisibilité sur l'image */
     background: rgba(0, 0, 0, 0.5); 
     backdrop-filter: blur(4px);
     border: 1px solid rgba(255, 255, 255, 0.2);
     border-radius: 50%;
-    
-    width: 40px;
-    height: 40px;
-    
+    width: 40px; height: 40px;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; transition: all 0.2s ease;
+    outline: none; padding: 0;
+}
+.btn-pin i { font-size: 18px; color: rgba(255, 255, 255, 0.8); transition: transform 0.2s; }
+.btn-pin:hover { background: rgba(0, 0, 0, 0.8); transform: scale(1.1); }
+.btn-pin.active { background: rgba(0, 0, 0, 0.7); border-color: var(--accent-yellow); }
+.btn-pin.active i { color: var(--accent-yellow); filter: drop-shadow(0 0 5px rgba(255, 215, 0, 0.8)); }
+
+/* =========================================
+   8. PAGE AVANCEMENT (SPECIFIQUE)
+   ========================================= */
+.project-grid-detail {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 25px;
+    margin-top: 25px;
+}
+
+/* Sections cartes (Détails, Notes, Agenda) */
+.section-card {
+    background-color: var(--sidebar-bg);
+    padding: 25px;
+    border-radius: 15px;
+    box-shadow: var(--card-shadow);
+    margin-bottom: 25px;
+    color: var(--text-white);
+}
+
+.section-card h3 {
+    color: var(--text-white);
+    border-bottom: 2px solid var(--purple-main);
+    padding-bottom: 15px;
+    margin-bottom: 20px;
+    font-size: 1.25rem;
+    display: flex; align-items: center; gap: 10px;
+}
+
+/* Items listes (Notes, Agenda, Membres) */
+.note-item, .agenda-item {
+    padding: 15px 0;
+    border-bottom: 1px dashed var(--separator-color);
+}
+.note-item:last-child, .agenda-item:last-child { border-bottom: none; }
+.note-header { display: flex; justify-content: space-between; margin-bottom: 5px; font-size: 0.9rem; }
+.text-muted { color: var(--text-grey); font-size: 0.8rem; }
+
+.member-item {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--separator-color);
+}
+.member-item:last-child { border-bottom: none; }
+.role-badge {
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: bold;
+    background-color: rgba(255,255,255,0.1);
+    color: var(--text-grey);
+}
+
+.date-badge {
+    background: rgba(186, 84, 245, 0.2);
+    color: var(--purple-main);
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    margin: 0 5px;
+}
+
+/* Responsive pour la grille détail */
+@media (max-width: 900px) {
+    .project-grid-detail { grid-template-columns: 1fr; }
+}
+
+/* Bannière d'en-tête */
+.project-banner {
+    position: relative;
+    height: 200px;
+    border-radius: 15px;
+    overflow: hidden;
+    margin-bottom: 30px;
     display: flex;
-    align-items: center;
-    justify-content: center;
+    align-items: flex-end;
+    box-shadow: var(--card-shadow);
+}
+
+.project-banner-bg {
+    position: absolute;
+    top: 0; left: 0; width: 100%; height: 100%;
+    background-size: cover;
+    background-position: center;
+    filter: blur(4px) brightness(0.6); /* Flou et assombrissement */
+    z-index: 1;
+}
+
+.project-banner-content {
+    position: relative;
+    z-index: 2;
+    padding: 30px;
+    width: 100%;
+    background: linear-gradient(to top, rgba(30,30,47, 0.9), transparent);
+}
+
+.project-banner h1 {
+    font-size: 2.5rem;
+    margin-bottom: 5px;
+    color: white;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+}
+
+/* Grille de contenu */
+.project-details-grid {
+    display: grid;
+    grid-template-columns: 2fr 1fr; /* 2/3 à gauche, 1/3 à droite */
+    gap: 25px;
+}
+
+/* Cartes de section */
+.detail-card {
+    background-color: var(--sidebar-bg);
+    border-radius: 15px;
+    padding: 25px;
+    margin-bottom: 25px;
+    box-shadow: var(--card-shadow);
+}
+
+.detail-card h3 {
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+    padding-bottom: 15px;
+    margin-bottom: 20px;
+    color: var(--purple-main);
+    font-size: 1.2rem;
+    display: flex; align-items: center; gap: 10px;
+}
+
+/* Liste Membres & Notes */
+.list-item {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 12px 0;
+    border-bottom: 1px dashed rgba(255,255,255,0.1);
+}
+.list-item:last-child { border-bottom: none; }
+
+.user-info { display: flex; align-items: center; gap: 10px; }
+.mini-avatar { 
+    width: 30px; height: 30px; border-radius: 50%; object-fit: cover; 
+    border: 1px solid var(--purple-main);
+}
+
+/* Responsive */
+@media (max-width: 900px) {
+    .project-details-grid { grid-template-columns: 1fr; }
+}
+
+
+
+
+
+/* Style pour cacher le vrai input file */
+input[id="banner_file_input"] {
+    display: none;
+}
+
+/* Le bouton personnalisé */
+.custom-file-upload {
+    display: inline-block;
+    padding: 10px 20px;
     cursor: pointer;
-    transition: all 0.2s ease;
-    
-    /* Supprime les styles par défaut */
-    outline: none;
-    padding: 0;
+    background-color: rgba(186, 84, 245, 0.1); /* Fond violet très léger */
+    border: 1px dashed #ba54f5; /* Bordure violette */
+    border-radius: 8px;
+    color: white;
+    font-weight: 500;
+    transition: all 0.3s;
+    width: 100%;
+    text-align: center;
 }
 
-.btn-pin i {
-    font-size: 18px;
-    color: rgba(255, 255, 255, 0.8); /* Blanc cassé par défaut */
-    transition: transform 0.2s, color 0.2s;
+.custom-file-upload:hover {
+    background-color: rgba(186, 84, 245, 0.3);
+    border-style: solid;
 }
 
-.btn-pin:hover {
-    background: rgba(0, 0, 0, 0.8);
-    transform: scale(1.1);
+.custom-file-upload i {
+    margin-right: 8px;
 }
 
-/* --- ETAT ACTIF (JAUNE) --- */
-.btn-pin.active {
-    background: rgba(0, 0, 0, 0.7);
-    border-color: #ffd700;
+/* Texte du fichier sélectionné (optionnel, pour feedback) */
+#file-chosen {
+    margin-top: 10px;
+    font-size: 0.9rem;
+    color: #9a9a9a;
+    font-style: italic;
+    display: block;
+    text-align: center;
 }
-
-.btn-pin.active i {
-    color: #ffd700; /* Jaune Or */
-    filter: drop-shadow(0 0 5px rgba(255, 215, 0, 0.8)); /* Petit effet néon */
-}
-
