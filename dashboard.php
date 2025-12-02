@@ -155,57 +155,179 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     }
 }
 
-// --- 5B. VÉRIFICATION HAVE I BEEN PWNED (SIMULATION GRATUITE) ---
+// --- 5B. VÉRIFICATION HAVE I BEEN PWNED (API BREACHDIRECTORY) ---
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'check_hibp') {
     $userEmail = $currentUser['email'];
     $isLeaked = false;
     
     // ═══════════════════════════════════════════════════════════════════
-    //  SIMULATION GRATUITE (Sans clé API)
-    // ═══════════════════════════════════════════════════════════════════
-    //  Règle : Si l'email contient "pwned", on simule une fuite détectée
-    //  Exemple : test-pwned@gmail.com → Fuite détectée
-    //            john.doe@arcops.com → Compte sécurisé
+    //  APPEL API BREACHDIRECTORY (RapidAPI)
     // ═══════════════════════════════════════════════════════════════════
     
     try {
-        // Vérification locale (simulation)
-        if (stripos($userEmail, 'pwned') !== false) {
-            // Email contient "pwned" → Simulation de fuite
-            $isLeaked = true;
-            $settingsMessage = '<div class="alert alert-error" style="padding: 20px; border-radius: 10px; margin-bottom: 20px;">
-                <div style="display: flex; align-items: center; gap: 15px;">
-                    <i class="fas fa-exclamation-triangle" style="font-size: 2rem; color: #e74c3c;"></i>
-                    <div>
-                        <strong style="font-size: 1.1rem;">⚠️ ATTENTION - Fuite de données détectée !</strong>
-                        <p style="margin: 8px 0 0 0; color: #ccc;">Votre adresse email <strong>' . clean_output($userEmail) . '</strong> a été trouvée dans une ou plusieurs fuites de données publiques. Nous vous recommandons vivement de changer votre mot de passe immédiatement.</p>
+        // Configuration de l'API (avec slash final pour éviter redirections)
+        $apiUrl = "https://" . RAPIDAPI_HOST . "/?func=auto&term=" . urlencode($userEmail);
+        
+        // Initialisation cURL
+        $ch = curl_init();
+        curl_setopt($ch, CURLOPT_URL, $apiUrl);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true); // ← CORRECTION : Suivre les redirections HTTP 307
+        curl_setopt($ch, CURLOPT_MAXREDIRS, 5); // Maximum 5 redirections
+        curl_setopt($ch, CURLOPT_TIMEOUT, 15); // Timeout 15 secondes
+        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
+        
+        // Headers obligatoires RapidAPI
+        curl_setopt($ch, CURLOPT_HTTPHEADER, [
+            'X-RapidAPI-Key: ' . RAPIDAPI_KEY,
+            'X-RapidAPI-Host: ' . RAPIDAPI_HOST
+        ]);
+        
+        // Exécution de la requête
+        $response = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $curlError = curl_error($ch);
+        curl_close($ch);
+        
+        // Logging de la requête
+        log_security_event("Appel API BreachDirectory pour {$userEmail} - HTTP {$httpCode}");
+        
+        // Vérification erreur cURL
+        if ($curlError) {
+            throw new Exception("Erreur cURL : " . $curlError);
+        }
+        
+        // Vérification HTTP
+        if ($httpCode !== 200) {
+            throw new Exception("API HTTP Error : " . $httpCode);
+        }
+        
+        // Décodage JSON
+        $data = json_decode($response, true);
+        
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            throw new Exception("Erreur de décodage JSON : " . json_last_error_msg());
+        }
+        
+        // ═══════════════════════════════════════════════════════════════════
+        //  ANALYSE DE LA RÉPONSE
+        // ═══════════════════════════════════════════════════════════════════
+        //  Structure attendue de l'API BreachDirectory :
+        //  {
+        //    "success": true,
+        //    "found": 2,
+        //    "result": [
+        //      { "source": "LinkedIn2021", "password": "hashedpass" },
+        //      { "source": "Collection#1", "password": "plaintext" }
+        //    ]
+        //  }
+        // ═══════════════════════════════════════════════════════════════════
+        
+        $breachCount = 0;
+        $breachSources = [];
+        
+        if (isset($data['success']) && $data['success'] === true) {
+            if (isset($data['found']) && $data['found'] > 0) {
+                // Fuites détectées
+                $isLeaked = true;
+                $breachCount = (int)$data['found'];
+                
+                // Récupération des sources de fuites
+                if (isset($data['result']) && is_array($data['result'])) {
+                    foreach ($data['result'] as $breach) {
+                        if (isset($breach['source'])) {
+                            $breachSources[] = clean_output($breach['source']);
+                        }
+                    }
+                }
+                
+                // Message d'alerte détaillé
+                $sourcesText = !empty($breachSources) ? implode(', ', array_slice($breachSources, 0, 5)) : 'Sources multiples';
+                if (count($breachSources) > 5) {
+                    $sourcesText .= ' et ' . (count($breachSources) - 5) . ' autre(s)';
+                }
+                
+                $settingsMessage = '<div class="alert alert-error" style="padding: 20px; border-radius: 10px; margin-bottom: 20px;">
+                    <div style="display: flex; align-items: center; gap: 15px;">
+                        <i class="fas fa-exclamation-triangle" style="font-size: 2rem; color: #e74c3c;"></i>
+                        <div>
+                            <strong style="font-size: 1.1rem;">⚠️ ALERTE CRITIQUE - ' . $breachCount . ' Fuite(s) Détectée(s) !</strong>
+                            <p style="margin: 8px 0 0 0; color: #ccc;">
+                                Votre adresse email <strong>' . clean_output($userEmail) . '</strong> a été trouvée dans <strong>' . $breachCount . ' base(s) de données compromises</strong>.
+                            </p>
+                            <p style="margin: 8px 0 0 0; color: #e74c3c; font-size: 0.9rem;">
+                                <strong>Sources identifiées</strong> : ' . $sourcesText . '
+                            </p>
+                            <p style="margin: 8px 0 0 0; color: #fff; font-size: 0.85rem; background: rgba(231, 76, 60, 0.2); padding: 10px; border-radius: 5px; margin-top: 10px;">
+                                <i class="fas fa-shield-alt"></i> <strong>Recommandations urgentes</strong> :<br>
+                                • Changez immédiatement votre mot de passe<br>
+                                • Activez l\'authentification à deux facteurs (2FA)<br>
+                                • Vérifiez vos comptes bancaires et services en ligne<br>
+                                • Ne réutilisez JAMAIS ce mot de passe ailleurs
+                            </p>
+                        </div>
                     </div>
-                </div>
-            </div>';
-            log_security_event("Vérification HIBP (simulation) : FUITE DÉTECTÉE pour " . $userEmail);
+                </div>';
+                
+                log_security_event("⚠️ FUITE DÉTECTÉE (API BreachDirectory) : {$userEmail} - {$breachCount} source(s) : " . implode(', ', $breachSources));
+                
+            } else {
+                // Aucune fuite trouvée
+                $isLeaked = false;
+                $settingsMessage = '<div class="alert alert-success" style="padding: 20px; border-radius: 10px; margin-bottom: 20px;">
+                    <div style="display: flex; align-items: center; gap: 15px;">
+                        <i class="fas fa-shield-alt" style="font-size: 2rem; color: #2ecc71;"></i>
+                        <div>
+                            <strong style="font-size: 1.1rem;">✅ Excellente Nouvelle !</strong>
+                            <p style="margin: 8px 0 0 0; color: #ccc;">
+                                Aucune fuite de données détectée pour votre adresse email <strong>' . clean_output($userEmail) . '</strong>.
+                            </p>
+                            <p style="margin: 8px 0 0 0; color: #2ecc71; font-size: 0.85rem;">
+                                <i class="fas fa-check-circle"></i> Votre compte n\'apparaît dans aucune base de données publique compromise.
+                            </p>
+                            <p style="margin: 8px 0 0 0; color: #a9a9b3; font-size: 0.8rem; font-style: italic;">
+                                💡 Continuez à utiliser des mots de passe forts et uniques pour chaque service.
+                            </p>
+                        </div>
+                    </div>
+                </div>';
+                
+                log_security_event("✅ AUCUNE FUITE (API BreachDirectory) : {$userEmail}");
+            }
         } else {
-            // Email ne contient pas "pwned" → Compte sécurisé
-            $isLeaked = false;
-            $settingsMessage = '<div class="alert alert-success" style="padding: 20px; border-radius: 10px; margin-bottom: 20px;">
-                <div style="display: flex; align-items: center; gap: 15px;">
-                    <i class="fas fa-shield-alt" style="font-size: 2rem; color: #2ecc71;"></i>
-                    <div>
-                        <strong style="font-size: 1.1rem;">✅ Excellente nouvelle !</strong>
-                        <p style="margin: 8px 0 0 0; color: #ccc;">Aucune fuite de données détectée pour votre adresse email <strong>' . clean_output($userEmail) . '</strong>. Votre compte est sécurisé.</p>
-                    </div>
-                </div>
-            </div>';
-            log_security_event("Vérification HIBP (simulation) : AUCUNE FUITE pour " . $userEmail);
+            // Réponse API invalide
+            throw new Exception("Structure de réponse API invalide ou success=false");
         }
         
     } catch (Exception $e) {
-        $settingsMessage = '<div class="alert alert-error">Erreur lors de la vérification. Veuillez réessayer.</div>';
-        log_security_event("Exception HIBP simulation : " . $e->getMessage());
+        // Gestion des erreurs
+        $settingsMessage = '<div class="alert alert-warning" style="padding: 20px; border-radius: 10px; margin-bottom: 20px;">
+            <div style="display: flex; align-items: center; gap: 15px;">
+                <i class="fas fa-exclamation-circle" style="font-size: 2rem; color: #f39c12;"></i>
+                <div>
+                    <strong style="font-size: 1.1rem;">⚠️ Service Temporairement Indisponible</strong>
+                    <p style="margin: 8px 0 0 0; color: #ccc;">
+                        Impossible de vérifier les fuites de données pour le moment. Veuillez réessayer dans quelques instants.
+                    </p>
+                    <p style="margin: 8px 0 0 0; color: #888; font-size: 0.8rem;">
+                        Erreur technique : ' . clean_output($e->getMessage()) . '
+                    </p>
+                </div>
+            </div>
+        </div>';
+        
+        log_security_event("❌ ERREUR API BreachDirectory pour {$userEmail} : " . $e->getMessage());
+        
+        // On ne met pas à jour has_leaked en cas d'erreur API
+        // Pour éviter de marquer comme "safe" par erreur
+        goto skip_db_update;
     }
     
     // Mise à jour BDD
     $stmt = $pdo->prepare("UPDATE users SET has_leaked = ? WHERE id = ?");
     $stmt->execute([$isLeaked ? 1 : 0, $userId]);
+    
+    skip_db_update:
     
     // Recharger les données utilisateur
     $stmt = $pdo->prepare("SELECT * FROM users WHERE id = ?");

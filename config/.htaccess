@@ -1,0 +1,28 @@
+# ═══════════════════════════════════════════════════════════════════
+#  PROTECTION DU DOSSIER CONFIG - ARCOPS v2.3
+# ═══════════════════════════════════════════════════════════════════
+#  Interdit l'accès direct aux fichiers de configuration via HTTP
+# ═══════════════════════════════════════════════════════════════════
+
+# Refuser l'accès à tous les fichiers
+Order Deny,Allow
+Deny from all
+
+# ═══════════════════════════════════════════════════════════════════
+#  SÉCURITÉ SUPPLÉMENTAIRE
+# ═══════════════════════════════════════════════════════════════════
+
+# Désactiver l'exécution de scripts PHP
+<FilesMatch "\.(php|php3|php4|php5|phtml)$">
+    Order Deny,Allow
+    Deny from all
+</FilesMatch>
+
+# Désactiver le listing des répertoires
+Options -Indexes
+
+# Masquer les fichiers sensibles
+<FilesMatch "^(db\.php|\.env|secrets\.php|\.git)">
+    Order Deny,Allow
+    Deny from all
+</FilesMatch>

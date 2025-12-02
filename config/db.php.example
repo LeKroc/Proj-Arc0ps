@@ -1,0 +1,114 @@
+<?php
+// ═══════════════════════════════════════════════════════════════════
+//  FICHIER DE CONFIGURATION - TEMPLATE
+// ═══════════════════════════════════════════════════════════════════
+//  📋 Instructions :
+//  1. Copier ce fichier → Renommer en "db.php"
+//  2. Remplacer toutes les valeurs "YOUR_XXX" par vos vraies valeurs
+//  3. Ne JAMAIS commiter le fichier db.php sur Git !
+// ═══════════════════════════════════════════════════════════════════
+
+// ─────────────────────────────────────────────────────────────────
+//  CLÉ SECRÈTE DE SESSION (Générer avec : openssl rand -hex 32)
+// ─────────────────────────────────────────────────────────────────
+define('SECRET_KEY', 'YOUR_SECRET_KEY_HERE_MIN_64_CHARS');
+
+// ─────────────────────────────────────────────────────────────────
+//  CLÉ API BREACHDIRECTORY (RapidAPI)
+// ─────────────────────────────────────────────────────────────────
+//  🔗 Obtenir votre clé : https://rapidapi.com/rohan-patra/api/breachdirectory
+//  💰 Plan gratuit : 100 requêtes/mois
+//  💰 Plan Pro : 10 000 requêtes/mois (~9.99$/mois)
+// ─────────────────────────────────────────────────────────────────
+define('RAPIDAPI_KEY', 'YOUR_RAPIDAPI_KEY_HERE');
+define('RAPIDAPI_HOST', 'breachdirectory.p.rapidapi.com');
+
+// ─────────────────────────────────────────────────────────────────
+//  PARAMÈTRES DE CONNEXION À LA BASE DE DONNÉES
+// ─────────────────────────────────────────────────────────────────
+//  📝 Exemples de configuration :
+//
+//  LOCAL (XAMPP/WAMP) :
+//  $host = 'localhost';
+//  $db   = 'arcops_db';
+//  $user = 'root';
+//  $pass = '';
+//
+//  HÉBERGEMENT BOT-HOSTING :
+//  $host = 'us.mysql.db.bot-hosting.net:3306';
+//  $db   = 's123456_myDB';
+//  $user = 'u123456_username';
+//  $pass = 'YourStrongPassword123!';
+//
+//  HÉBERGEMENT OVH :
+//  $host = 'mysql5-XX.pro';
+//  $db   = 'username';
+//  $user = 'username';
+//  $pass = 'YourPassword';
+// ─────────────────────────────────────────────────────────────────
+
+$host = 'YOUR_DB_HOST';      // Ex: localhost ou us.mysql.db.bot-hosting.net:3306
+$db   = 'YOUR_DB_NAME';      // Ex: arcops_db
+$user = 'YOUR_DB_USER';      // Ex: root (local) ou u123456_username (prod)
+$pass = 'YOUR_DB_PASSWORD';  // Ex: '' (local) ou YourStrongPassword123!
+$charset = 'utf8mb4';        // Important pour les emojis et caractères spéciaux
+
+$dsn = "mysql:host=$host;dbname=$db;charset=$charset";
+
+// ─────────────────────────────────────────────────────────────────
+//  CONNEXION JDBC (Optionnel - Pour les outils d'administration)
+// ─────────────────────────────────────────────────────────────────
+$JDBC_Connection = "jdbc:mysql://$user:" . urlencode($pass) . "@$host/$db";
+
+// ─────────────────────────────────────────────────────────────────
+//  OPTIONS PDO (Sécurité)
+// ─────────────────────────────────────────────────────────────────
+$options = [
+    PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION, // Affiche les erreurs SQL
+    PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,       // Retourne des tableaux associatifs
+    PDO::ATTR_EMULATE_PREPARES   => false,                  // Sécurité contre les injections SQL
+];
+
+// ─────────────────────────────────────────────────────────────────
+//  CONNEXION À LA BASE DE DONNÉES
+// ─────────────────────────────────────────────────────────────────
+try {
+    $pdo = new PDO($dsn, $user, $pass, $options);
+    // ✅ Connexion réussie (pas de message affiché pour des raisons de sécurité)
+} catch (\PDOException $e) {
+    // ❌ Erreur de connexion
+    
+    // EN DÉVELOPPEMENT (Afficher l'erreur) :
+    die("Erreur de connexion à la Base de Données : " . $e->getMessage());
+    
+    // EN PRODUCTION (Masquer l'erreur) :
+    // error_log("Erreur BDD : " . $e->getMessage());
+    // die("Service temporairement indisponible. Veuillez réessayer plus tard.");
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  🔒 RECOMMANDATIONS DE SÉCURITÉ
+// ═══════════════════════════════════════════════════════════════════
+//
+//  1. PERMISSIONS FICHIER (Linux/Mac) :
+//     chmod 600 config/db.php
+//
+//  2. .htaccess (Apache) :
+//     Créer /config/.htaccess avec :
+//     Order Deny,Allow
+//     Deny from all
+//
+//  3. VARIABLES D'ENVIRONNEMENT (Production) :
+//     - Créer un fichier .env (pas de commit Git)
+//     - Charger avec : $apiKey = getenv('RAPIDAPI_KEY');
+//
+//  4. ROTATION DES CLÉS :
+//     - Changer SECRET_KEY tous les 6 mois
+//     - Changer mot de passe BDD tous les 3 mois
+//
+//  5. LOGS :
+//     - Ne JAMAIS logger les clés API ou mots de passe
+//     - Utiliser error_log() au lieu de echo/print
+//
+// ═══════════════════════════════════════════════════════════════════
+?>

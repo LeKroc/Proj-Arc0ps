@@ -1,10 +1,11 @@
 <div align="center">
   <img src="assets/LOGO_Arc0ps.png" alt="Logo### 🔐 Vérification des Fuites de Données
-- **Intégration API "Have I Been Pwned" (Mode Simulation Gratuit)** : Surveillance proactive des emails compromis
+- **Intégration API "BreachDirectory" (RapidAPI)** : Surveillance proactive des emails compromis avec données réelles
 - **Mise à jour automatique** : Statut de sécurité stocké en BDD (`has_leaked`)
-- **Alertes visuelles** : Badge rouge/vert selon le résultat
-- **Badge permanent** : Indicateur de sécurité affiché en temps réel dans la sidebar
-- **Mode gratuit** : Simulation locale sans nécessiter de clé API payante (idéal pour la démonstration et les tests)0ps" width="400">
+- **Alertes visuelles détaillées** : Affichage des sources de fuites et nombre de bases compromises
+- **Badge permanent** : Indicateur de sécurité affiché en temps réel dans la sidebar (LEAKED rouge / SECURE vert)
+- **Gestion d'erreurs robuste** : Messages informatifs en cas d'indisponibilité de l'API
+- **Logging complet** : Traçabilité de toutes les vérifications et résultats0ps" width="400">
   
   # 🔒 Λrc0ps - Project Management Platform
   
@@ -290,8 +291,10 @@ Arc0ps/
 │
 ├── 📄 SECURITY_AUDIT_REPORT.md    # Rapport d'audit complet
 ├── 📄 INSTALLATION_GUIDE.md       # Guide d'installation détaillé
-├── 📄 HIBP_FEATURE_GUIDE.md       # Guide technique HIBP
+├── 📄 BREACHDIRECTORY_API_GUIDE.md # Guide API BreachDirectory (RapidAPI)
+├── 📄 AGENDA_WIDGET_GUIDE.md      # Guide widget Agenda & Événements
 ├── 📄 CHANGELOG_v2.1_COMPLETE.md  # Récapitulatif v2.1
+├── 📄 CHANGELOG_v2.2_PIN_FIX.md   # Documentation épinglage personnel
 └── 📄 README.md                   # Ce fichier
 ```
 

@@ -43,3 +43,105 @@ Thumbs.db
 # Cookies de session (ne jamais commit)
 *_auth
 *.session
+
+# ═══════════════════════════════════════════════════════════════════
+#  GITIGNORE - ARCOPS v2.3
+# ═══════════════════════════════════════════════════════════════════
+#  Fichiers sensibles à NE JAMAIS commiter sur Git
+# ═══════════════════════════════════════════════════════════════════
+
+# ─────────────────────────────────────────────────────────────────
+#  CONFIGURATION & SECRETS
+# ─────────────────────────────────────────────────────────────────
+config/db.php
+db.php
+.env
+.env.local
+secrets.php
+
+# ─────────────────────────────────────────────────────────────────
+#  FICHIERS UPLOADÉS (Données utilisateur)
+# ─────────────────────────────────────────────────────────────────
+assets/PhotoProfile/*
+!assets/PhotoProfile/default_avatar.png
+assets/imageProject/*
+!assets/imageProject/.gitkeep
+assets/project_files/**/*
+!assets/project_files/.gitkeep
+assets/notes/*.json
+
+# ─────────────────────────────────────────────────────────────────
+#  LOGS & CACHE
+# ─────────────────────────────────────────────────────────────────
+logs/*.log
+logs/*.txt
+cache/*
+temp/*
+*.cache
+
+# ─────────────────────────────────────────────────────────────────
+#  SYSTÈME D'EXPLOITATION
+# ─────────────────────────────────────────────────────────────────
+# Windows
+Thumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Linux
+*~
+
+# ─────────────────────────────────────────────────────────────────
+#  IDE & ÉDITEURS
+# ─────────────────────────────────────────────────────────────────
+# VSCode
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+# PhpStorm / JetBrains
+.idea/
+*.iml
+*.ipr
+*.iws
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# Notepad++
+*.npp_session
+
+# ─────────────────────────────────────────────────────────────────
+#  PHP
+# ─────────────────────────────────────────────────────────────────
+vendor/
+composer.lock
+composer.phar
+
+# ─────────────────────────────────────────────────────────────────
+#  BACKUPS & TEMPORAIRES
+# ─────────────────────────────────────────────────────────────────
+*.bak
+*.backup
+*.sql.gz
+*.sql.zip
+backup_*.sql
+*.old
+*.swp
+*.swo
+*.tmp
+
+# ─────────────────────════════════════════════════════════════════
+#  DOCUMENTATION SENSIBLE (optionnel)
+# ─────────────────────────────────────────────────────────────────
+# Décommenter si ces fichiers contiennent des infos sensibles
+# INSTALLATION_GUIDE_PRODUCTION.md
+# API_KEYS.txt
+# PASSWORDS.txt
