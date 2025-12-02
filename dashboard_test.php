@@ -191,21 +191,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_project'])) {
     }
 }
 
-// --- AJOUT : TRAITEMENT DU PIN (EPINGLE) ---
+// --- 5. TRAITEMENT DU PIN (EPINGLE) ---
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['toggle_pin'])) {
     if (isset($pdo)) {
         $projId = (int)$_POST['project_id'];
-        // Inverse l'état : Si 0 devient 1, Si 1 devient 0
+        
+        // On inverse l'état (Si 0 -> 1, Si 1 -> 0)
+        // La requête utilise "NOT is_pinned" pour faire la bascule
         $sql = "UPDATE projects SET is_pinned = NOT is_pinned WHERE id = ? AND owner_id = ?";
         $stmt = $pdo->prepare($sql);
         $stmt->execute([$projId, $userId]);
         
-        // Recharge la page pour voir l'étoile changer de couleur
+        // On recharge la page pour voir le changement (et déplacer le projet en haut)
         header("Location: " . $_SERVER['PHP_SELF']);
         exit;
     }
 }
-
 ?>
 
 <!DOCTYPE html>
@@ -248,204 +249,144 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['toggle_pin'])) {
                         </div>
                     </div>
                 </div>
-
-                <?php if (!empty($pinnedProjects)): ?>
-                    <h2 style="margin-top: 40px; margin-bottom: 20px; font-size: 1.2rem; color: #a9a9b3; display:flex; align-items:center; gap:10px;">
-                        <i class="fas fa-star" style="color: #ffd700;"></i> Vos favoris
-                    </h2>
-                    
-                    <div class="projects-grid">
-                        <?php foreach ($pinnedProjects as $project): ?>
-                            <?php 
-                                $id = $project['id'];
-                                $title = htmlspecialchars($project['title']);
-                                $status = htmlspecialchars($project['status']);
-                                $progression = (int)$project['progression'];
-                                $created_at = date('d/m/Y', strtotime($project['created_at']));
-                                $status_html = get_status_badge_html($status);
-
-                                $coverImage = getProjectImage($id); 
-                                if (!empty($project['image_url']) && file_exists($project['image_url'])) {
-                                    $coverImage = htmlspecialchars($project['image_url']); 
-                                }
-                            ?>
-                            
-                            <div class="project-card" onclick="window.location='avancement.php?id=<?= $id ?>'" style="cursor: pointer;">
-                                
-                                <div class="pin-container">
-                                    <span class="btn-pin active" style="cursor: default;">
-                                        <i class="fas fa-star"></i>
-                                    </span>
-                                </div>
-
-                                <img src="<?= $coverImage ?>" alt="Cover">
-                                <div class="project-info">
-                                    <h3><?= $title ?></h3>
-                                    <p class="project-status">Statut : <?= $status_html ?></p>
-                                    
-                                    <div class="progress-bar-small-container">
-                                        <small>Progression: <?= $progression ?>%</small>
-                                        <div class="progress-bar-small">
-                                            <div class="progress-fill-small" style="width: <?= $progression ?>%;"></div>
-                                        </div>
-                                    </div>
-                                    <br>
-                                    <span class="project-date">Créé le : <?= $created_at ?></span>
-                                </div>
-                            </div>
-                        <?php endforeach; ?>
-                    </div>
-                <?php endif; ?>
             </div>
 
-            <div id="tab-projects" class="content-section">
-                <header class="header header-projects">
-                    <h1><i class="fas fa-box"></i> My Projects</h1>
+        <div id="tab-projects" class="content-section">
+            <header class="header header-projects">
+                <h1><i class="fas fa-box"></i> My Projects</h1>
 
-                    <button class="btn-add-project" onclick="openModal()">
-                        <i class="fas fa-plus"></i> Add Project
-                    </button>
-                    
-                    <div id="modal-add-project" class="modal">
-                        <div class="modal-content">
-                            <span class="close-modal" onclick="closeModal()">&times;</span>
-                            <h2>Nouveau Projet</h2>
+                <button class="btn-add-project" onclick="openModal()">
+                    <i class="fas fa-plus"></i> Add Project
+                </button>
+                
+                <div id="modal-add-project" class="modal">
+                    <div class="modal-content">
+                        <span class="close-modal" onclick="closeModal()">&times;</span>
+                        <h2>Nouveau Projet</h2>
 
-                            <form method="POST" action="" enctype="multipart/form-data">
-                                <input type="hidden" name="create_project" value="1">
-
-                                <div class="form-group">
-                                    <label>Nom du projet</label>
-                                    <input type="text" name="project_name" required placeholder="Ex: Migration Serveur">
-                                </div>
-
-                                <div class="form-group">
-                                    <label>Image de couverture (Optionnel)</label>
-                                    <div class="file-input-wrapper">
-                                        <input type="file" name="project_image" id="proj_img" accept="image/*">
-                                        <label for="proj_img" class="file-label">
-                                            <i class="fas fa-image"></i> Choisir une image...
-                                        </label>
-                                    </div>
-                                </div>
-
-                                <div class="form-group">
-                                    <label>Description</label>
-                                    <textarea name="project_desc" rows="4" placeholder="Détails du projet..."></textarea>
-                                </div>
-
-                                <button type="submit" class="btn-submit">Créer le projet</button>
-                            </form>
-                        </div>
-                    </div>
-                </header>
-
-                <div class="projects-grid">
-                    <?php if (!empty($allProjects)): ?>
-                        <?php foreach ($allProjects as $project): ?>
-                            <?php 
-                                $id = $project['id'];
-                                $title = htmlspecialchars($project['title']);
-                                $description = htmlspecialchars($project['description']);
-                                $status = htmlspecialchars($project['status']);
-                                $progression = (int)$project['progression'];
-                                $created_at = date('d/m/Y', strtotime($project['created_at']));
-                                
-                                // Vérif si épinglé
-                                $isPinned = ($project['is_pinned'] == 1);
-
-                                $coverImage = getProjectImage($id); 
-                                if (!empty($project['image_url']) && file_exists($project['image_url'])) {
-                                    $coverImage = htmlspecialchars($project['image_url']); 
-                                }
-
-                                $status_html = get_status_badge_html($status);
-                                if (empty($description)) { $description = "Aucune description."; }
-                                $description_short = substr($description, 0, 60) . (strlen($description) > 60 ? "..." : "");
-                            ?>
-                            
-                            <div class="project-card" onclick="window.location='avancement.php?id=<?= $id ?>'" style="cursor: pointer;">
-                                
-                                <div class="pin-container" onclick="event.stopPropagation()">
-                                    <form method="POST">
-                                        <input type="hidden" name="toggle_pin" value="1">
-                                        <input type="hidden" name="project_id" value="<?= $id ?>">
-                                        
-                                        <button type="submit" class="btn-pin <?= $isPinned ? 'active' : '' ?>" title="<?= $isPinned ? 'Retirer des favoris' : 'Ajouter aux favoris' ?>">
-                                            <i class="<?= $isPinned ? 'fas' : 'far' ?> fa-star"></i>
-                                        </button>
-                                    </form>
-                                </div>
-
-                                <img src="<?= $coverImage ?>" alt="Cover">
-                                
-                                <div class="project-info">
-                                    <h3><?= $title ?></h3>
-                                    <p class="project-status">Statut : <?= $status_html ?></p>
-                                    <p><?= $description_short ?></p>
-                                    
-                                    <div class="progress-bar-small-container">
-                                        <small>Progression: <?= $progression ?>%</small>
-                                        <div class="progress-bar-small">
-                                            <div class="progress-fill-small" style="width: <?= $progression ?>%;"></div>
-                                        </div>
-                                    </div>
-                                    <br>
-                                    <span class="project-date">Créé le : <?= $created_at ?></span>
-                                </div>
-                            </div>
-                        <?php endforeach; ?>
-                    <?php else: ?>
-                        <p class="empty-state">Aucun projet trouvé.</p>
-                    <?php endif; ?>
-                </div>
-            </div>
-
-            <div id="tab-settings" class="content-section">
-                <header class="header">
-                    <h1><i class="fas fa-cog"></i> Settings</h1>
-                </header>
-                <div class="settings-container">
-                    <div class="settings-card">
-                        <h2>Mon Profil</h2>
-                        
-                        <?php if (!empty($settingsMessage)) echo $settingsMessage; ?>
-
-                        <form class="settings-form" method="POST" action="" enctype="multipart/form-data">
-                            <input type="hidden" name="action" value="update_profile">
+                        <form method="POST" action="" enctype="multipart/form-data">
+                            <input type="hidden" name="create_project" value="1">
 
                             <div class="form-group">
-                                <label>Photo de profil</label>
+                                <label>Nom du projet</label>
+                                <input type="text" name="project_name" required placeholder="Ex: Migration Serveur">
+                            </div>
+
+                            <div class="form-group">
+                                <label>Image de couverture (Optionnel)</label>
                                 <div class="file-input-wrapper">
-                                    <input type="file" name="avatar" id="avatar" accept="image/png, image/jpeg, image/gif">
-                                    <label for="avatar" class="file-label">
-                                        <i class="fas fa-upload"></i> Choisir une image...
+                                    <input type="file" name="project_image" id="proj_img" accept="image/png, image/jpeg, image/gif">
+                                    <label for="proj_img" class="file-label">
+                                        <i class="fas fa-image"></i> Choisir une image...
                                     </label>
                                 </div>
                             </div>
 
                             <div class="form-group">
-                                <label>Nom d'utilisateur</label>
-                                <input type="text" name="username" value="<?php echo htmlspecialchars($currentUser['username']); ?>" required>
-                            </div>
-                            
-                            <div class="form-group">
-                                <label>Email</label>
-                                <input type="email" name="email" value="<?php echo htmlspecialchars($currentUser['email']); ?>" required>
-                            </div>
-                            
-                            <div class="form-group">
-                                <label>Bio</label>
-                                <textarea name="bio" rows="4"><?php echo htmlspecialchars($currentUser['bio'] ?? ''); ?></textarea>
+                                <label>Description</label>
+                                <textarea name="project_desc" rows="4" placeholder="Détails du projet..."></textarea>
                             </div>
 
-                            <button type="submit" class="btn-save">
-                                <i class="fas fa-save"></i> Sauvegarder les modifications
-                            </button>
+                            <button type="submit" class="btn-submit">Créer le projet</button>
                         </form>
                     </div>
+                </div> 
+                </header>
+
+            <div class="projects-grid">
+        </div> 
+
+        <div id="tab-settings" class="content-section">
+            <header class="header">
+                <h1><i class="fas fa-cog"></i> Settings</h1>
+            </header>
+
+            <div class="settings-container">
+                <div class="settings-card">
+                    <h2>Mon Profil</h2>
+                    <?php if (!empty($settingsMessage)) echo $settingsMessage; ?>
+
+                    <form class="settings-form" method="POST" action="" enctype="multipart/form-data">
+                        <input type="hidden" name="action" value="update_profile">
+
+                        <div class="form-group">
+                            <label>Photo de profil</label>
+                            <div class="file-input-wrapper">
+                                <input type="file" name="avatar" id="avatar" accept="image/png, image/jpeg, image/gif">
+                                <label for="avatar" class="file-label">
+                                    <i class="fas fa-upload"></i> Choisir une image...
+                                </label>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Nom d'utilisateur</label>
+                            <input type="text" name="username" value="<?php echo htmlspecialchars($currentUser['username']); ?>" required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>Email</label>
+                            <input type="email" name="email" value="<?php echo htmlspecialchars($currentUser['email']); ?>" required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>Bio</label>
+                            <textarea name="bio" rows="4"><?php echo htmlspecialchars($currentUser['bio'] ?? ''); ?></textarea>
+                        </div>
+
+                        <button type="submit" class="btn-save">
+                            <i class="fas fa-save"></i> Sauvegarder les modifications
+                        </button>
+                    </form>
                 </div>
             </div>
+        </div>
+
+        <div id="tab-settings" class="content-section">
+            <header class="header">
+                <h1><i class="fas fa-cog"></i> Settings</h1>
+            </header>
+            <div class="settings-container">
+                <div class="settings-card">
+                    <h2>Mon Profil</h2>
+                    
+                    <?php if (!empty($settingsMessage)) echo $settingsMessage; ?>
+
+                    <form class="settings-form" method="POST" action="" enctype="multipart/form-data">
+                        <input type="hidden" name="action" value="update_profile">
+
+                        <div class="form-group">
+                            <label>Photo de profil</label>
+                            <div class="file-input-wrapper">
+                                <input type="file" name="avatar" id="avatar" accept="image/png, image/jpeg, image/gif">
+                                <label for="avatar" class="file-label">
+                                    <i class="fas fa-upload"></i> Choisir une image...
+                                </label>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Nom d'utilisateur</label>
+                            <input type="text" name="username" value="<?php echo htmlspecialchars($currentUser['username']); ?>" required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>Email</label>
+                            <input type="email" name="email" value="<?php echo htmlspecialchars($currentUser['email']); ?>" required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>Bio</label>
+                            <textarea name="bio" rows="4"><?php echo htmlspecialchars($currentUser['bio'] ?? ''); ?></textarea>
+                        </div>
+
+                        <button type="submit" class="btn-save">
+                            <i class="fas fa-save"></i> Sauvegarder les modifications
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
             
             
             

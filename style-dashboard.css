@@ -135,6 +135,7 @@ body {
     box-shadow: var(--card-shadow);
     transition: transform 0.3s ease, border-color 0.3s;
     border: 1px solid transparent;
+    position: relative;
 }
 
 .project-card:hover {
@@ -581,3 +582,61 @@ input[type="file"] {
 .btn-submit:hover {
     box-shadow: 0 4px 15px rgba(186, 84, 245, 0.4);
 }
+
+.pin-form {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    z-index: 10; /* Pour être au-dessus de l'image */
+}
+
+.pin-container {
+    position: absolute;
+    top: 12px;  /* Distance du haut */
+    left: 12px; /* Distance de la GAUCHE (C'est ici le changement) */
+    z-index: 20; /* Pour être sûr d'être au-dessus de l'image */
+}
+
+.btn-pin {
+    /* Fond sombre flouté (Glassmorphism) pour lisibilité sur l'image */
+    background: rgba(0, 0, 0, 0.5); 
+    backdrop-filter: blur(4px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 50%;
+    
+    width: 40px;
+    height: 40px;
+    
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    
+    /* Supprime les styles par défaut */
+    outline: none;
+    padding: 0;
+}
+
+.btn-pin i {
+    font-size: 18px;
+    color: rgba(255, 255, 255, 0.8); /* Blanc cassé par défaut */
+    transition: transform 0.2s, color 0.2s;
+}
+
+.btn-pin:hover {
+    background: rgba(0, 0, 0, 0.8);
+    transform: scale(1.1);
+}
+
+/* --- ETAT ACTIF (JAUNE) --- */
+.btn-pin.active {
+    background: rgba(0, 0, 0, 0.7);
+    border-color: #ffd700;
+}
+
+.btn-pin.active i {
+    color: #ffd700; /* Jaune Or */
+    filter: drop-shadow(0 0 5px rgba(255, 215, 0, 0.8)); /* Petit effet néon */
+}
+
