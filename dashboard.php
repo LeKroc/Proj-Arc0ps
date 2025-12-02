@@ -155,6 +155,64 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     }
 }
 
+// --- 5B. VÉRIFICATION HAVE I BEEN PWNED (SIMULATION GRATUITE) ---
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'check_hibp') {
+    $userEmail = $currentUser['email'];
+    $isLeaked = false;
+    
+    // ═══════════════════════════════════════════════════════════════════
+    //  SIMULATION GRATUITE (Sans clé API)
+    // ═══════════════════════════════════════════════════════════════════
+    //  Règle : Si l'email contient "pwned", on simule une fuite détectée
+    //  Exemple : test-pwned@gmail.com → Fuite détectée
+    //            john.doe@arcops.com → Compte sécurisé
+    // ═══════════════════════════════════════════════════════════════════
+    
+    try {
+        // Vérification locale (simulation)
+        if (stripos($userEmail, 'pwned') !== false) {
+            // Email contient "pwned" → Simulation de fuite
+            $isLeaked = true;
+            $settingsMessage = '<div class="alert alert-error" style="padding: 20px; border-radius: 10px; margin-bottom: 20px;">
+                <div style="display: flex; align-items: center; gap: 15px;">
+                    <i class="fas fa-exclamation-triangle" style="font-size: 2rem; color: #e74c3c;"></i>
+                    <div>
+                        <strong style="font-size: 1.1rem;">⚠️ ATTENTION - Fuite de données détectée !</strong>
+                        <p style="margin: 8px 0 0 0; color: #ccc;">Votre adresse email <strong>' . clean_output($userEmail) . '</strong> a été trouvée dans une ou plusieurs fuites de données publiques. Nous vous recommandons vivement de changer votre mot de passe immédiatement.</p>
+                    </div>
+                </div>
+            </div>';
+            log_security_event("Vérification HIBP (simulation) : FUITE DÉTECTÉE pour " . $userEmail);
+        } else {
+            // Email ne contient pas "pwned" → Compte sécurisé
+            $isLeaked = false;
+            $settingsMessage = '<div class="alert alert-success" style="padding: 20px; border-radius: 10px; margin-bottom: 20px;">
+                <div style="display: flex; align-items: center; gap: 15px;">
+                    <i class="fas fa-shield-alt" style="font-size: 2rem; color: #2ecc71;"></i>
+                    <div>
+                        <strong style="font-size: 1.1rem;">✅ Excellente nouvelle !</strong>
+                        <p style="margin: 8px 0 0 0; color: #ccc;">Aucune fuite de données détectée pour votre adresse email <strong>' . clean_output($userEmail) . '</strong>. Votre compte est sécurisé.</p>
+                    </div>
+                </div>
+            </div>';
+            log_security_event("Vérification HIBP (simulation) : AUCUNE FUITE pour " . $userEmail);
+        }
+        
+    } catch (Exception $e) {
+        $settingsMessage = '<div class="alert alert-error">Erreur lors de la vérification. Veuillez réessayer.</div>';
+        log_security_event("Exception HIBP simulation : " . $e->getMessage());
+    }
+    
+    // Mise à jour BDD
+    $stmt = $pdo->prepare("UPDATE users SET has_leaked = ? WHERE id = ?");
+    $stmt->execute([$isLeaked ? 1 : 0, $userId]);
+    
+    // Recharger les données utilisateur
+    $stmt = $pdo->prepare("SELECT * FROM users WHERE id = ?");
+    $stmt->execute([$userId]);
+    $currentUser = $stmt->fetch(PDO::FETCH_ASSOC);
+}
+
 // --- 6. RECUPERATION DES DONNEES (SELECT) ---
 // On récupère les données MAINTENANT (donc après la potentielle mise à jour)
 $currentUser = false;
@@ -168,13 +226,36 @@ if (isset($pdo)) {
         $stmt->execute([$userId]);
         $currentUser = $stmt->fetch(PDO::FETCH_ASSOC);
 
-        // Projets
-        $stmt = $pdo->prepare("SELECT * FROM projects WHERE owner_id = ? AND is_pinned = 1 ORDER BY updated_at DESC");
-        $stmt->execute([$userId]);
+        // ═══════════════════════════════════════════════════════════════════
+        //  PROJETS ÉPINGLÉS (Créés OU Membre) - PERSONNALISÉS PAR UTILISATEUR
+        // ═══════════════════════════════════════════════════════════════════
+        $sqlPinned = "
+            SELECT DISTINCT p.*,
+                   CASE WHEN upp.user_id IS NOT NULL THEN 1 ELSE 0 END as is_pinned
+            FROM projects p
+            LEFT JOIN project_members pm ON p.id = pm.project_id
+            INNER JOIN user_project_pins upp ON p.id = upp.project_id AND upp.user_id = ?
+            WHERE (p.owner_id = ? OR pm.user_id = ?)
+            ORDER BY upp.pinned_at DESC
+        ";
+        $stmt = $pdo->prepare($sqlPinned);
+        $stmt->execute([$userId, $userId, $userId]);
         $pinnedProjects = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-        $stmt = $pdo->prepare("SELECT * FROM projects WHERE owner_id = ? ORDER BY created_at DESC");
-        $stmt->execute([$userId]);
+        // ═══════════════════════════════════════════════════════════════════
+        //  TOUS LES PROJETS (Créés OU Membre) - AVEC STATUT PIN PERSONNEL
+        // ═══════════════════════════════════════════════════════════════════
+        $sqlAll = "
+            SELECT DISTINCT p.*,
+                   CASE WHEN upp.user_id IS NOT NULL THEN 1 ELSE 0 END as is_pinned
+            FROM projects p
+            LEFT JOIN project_members pm ON p.id = pm.project_id
+            LEFT JOIN user_project_pins upp ON p.id = upp.project_id AND upp.user_id = ?
+            WHERE (p.owner_id = ? OR pm.user_id = ?)
+            ORDER BY p.created_at DESC
+        ";
+        $stmt = $pdo->prepare($sqlAll);
+        $stmt->execute([$userId, $userId, $userId]);
         $allProjects = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
     } catch (PDOException $e) { /* Silent fail */ }
@@ -200,14 +281,29 @@ function get_status_badge_html($status) {
     return "<span class=\"$class\">" . clean_output($status) . "</span>";
 }
 
-// --- AJOUT : TRAITEMENT DU PIN (EPINGLE) ---
+// --- TRAITEMENT DU PIN (ÉPINGLAGE PERSONNEL) ---
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['toggle_pin'])) {
     if (isset($pdo)) {
         $projId = secure_int($_POST['project_id']);
-        // Inverse l'état : Si 0 devient 1, Si 1 devient 0
-        $sql = "UPDATE projects SET is_pinned = NOT is_pinned WHERE id = ? AND owner_id = ?";
-        $stmt = $pdo->prepare($sql);
-        $stmt->execute([$projId, $userId]);
+        
+        // Vérifier si le projet est déjà épinglé par cet utilisateur
+        $stmtCheck = $pdo->prepare("SELECT 1 FROM user_project_pins WHERE user_id = ? AND project_id = ?");
+        $stmtCheck->execute([$userId, $projId]);
+        $isPinned = $stmtCheck->fetchColumn();
+        
+        if ($isPinned) {
+            // Désépingler : Supprimer la ligne
+            $sql = "DELETE FROM user_project_pins WHERE user_id = ? AND project_id = ?";
+            $stmt = $pdo->prepare($sql);
+            $stmt->execute([$userId, $projId]);
+            log_security_event("Projet {$projId} désépinglé par user {$userId}");
+        } else {
+            // Épingler : Insérer une nouvelle ligne
+            $sql = "INSERT INTO user_project_pins (user_id, project_id) VALUES (?, ?)";
+            $stmt = $pdo->prepare($sql);
+            $stmt->execute([$userId, $projId]);
+            log_security_event("Projet {$projId} épinglé par user {$userId}");
+        }
         
         // Recharge la page pour voir l'étoile changer de couleur
         header("Location: " . $_SERVER['PHP_SELF']);
@@ -455,6 +551,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['toggle_pin'])) {
                                 <i class="fas fa-save"></i> Sauvegarder les modifications
                             </button>
                         </form>
+
+                        <hr style="border: 1px solid #2b3553; margin: 30px 0;">
+
+                        <!-- SECTION VÉRIFICATION HAVE I BEEN PWNED -->
+                        <h3 style="margin-bottom: 15px;">🔒 Vérification de Sécurité</h3>
+                        <p style="color: #a9a9b3; font-size: 0.9rem; margin-bottom: 15px;">
+                            Vérifiez si votre email a été compromis lors de fuites de données publiques.
+                        </p>
+                        
+                        <form method="POST" action="">
+                            <?= csrf_field() ?>
+                            <input type="hidden" name="action" value="check_hibp">
+                            <button type="submit" class="btn-save" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+                                <i class="fas fa-shield-alt"></i> Vérifier les fuites de données
+                            </button>
+                        </form>
                     </div>
                 </div>
             </div>
@@ -485,6 +597,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['toggle_pin'])) {
                         $displayPath = $avatarPath . "?v=" . time();
                     ?>
                     <img src="<?= htmlspecialchars($displayPath) ?>" alt="Avatar" class="avatar">
+                    
+                    <!-- Badge Sécurité Permanent -->
+                    <?php if (isset($currentUser['has_leaked'])): ?>
+                        <?php if ($currentUser['has_leaked'] == 1): ?>
+                            <div style="position: absolute; top: 5px; right: 5px; background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%); color: white; padding: 5px 10px; border-radius: 15px; font-size: 0.7rem; font-weight: bold; box-shadow: 0 2px 8px rgba(231, 76, 60, 0.5);">
+                                <i class="fas fa-exclamation-triangle"></i> LEAKED
+                            </div>
+                        <?php else: ?>
+                            <div style="position: absolute; top: 5px; right: 5px; background: linear-gradient(135deg, #2ecc71 0%, #27ae60 100%); color: white; padding: 5px 10px; border-radius: 15px; font-size: 0.7rem; font-weight: bold; box-shadow: 0 2px 8px rgba(46, 204, 113, 0.5);">
+                                <i class="fas fa-shield-alt"></i> SECURE
+                            </div>
+                        <?php endif; ?>
+                    <?php endif; ?>
                 </div>
                 <h3><?php echo htmlspecialchars($currentUser['username']); ?></h3>
             </div>

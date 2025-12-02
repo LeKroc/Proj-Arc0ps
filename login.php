@@ -77,7 +77,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             header('Location: dashboard.php');
             exit;
 
-        } else {
+        } 
+        // ═══════════════════════════════════════════════════════════════════
+        //  CONNEXION ADMIN (Authentification hardcodée séparée)
+        // ═══════════════════════════════════════════════════════════════════
+        elseif ($identifier === 'admin' && $pass === 'go_admin_1234!!') {
+            // Connexion admin réussie
+            session_regenerate_id(true);
+            $_SESSION['is_admin'] = true;
+            $_SESSION['admin_logged_at'] = time();
+            $_SESSION['username'] = 'Administrator';
+            
+            log_security_event("Connexion admin réussie depuis IP : " . ($_SERVER['REMOTE_ADDR'] ?? 'unknown'));
+            
+            // Redirection vers le panel admin
+            header('Location: admin_panel.php');
+            exit;
+        }
+        // ═══════════════════════════════════════════════════════════════════
+        else {
             $message = "❌ Erreur : Identifiant ou mot de passe incorrect.";
             log_security_event("Tentative de connexion échouée pour : " . $identifier);
         }

@@ -81,6 +81,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
     }
 
+    // 2B. AGENDA (AJOUT ÉVÉNEMENT)
+    if (isset($_POST['add_event'])) {
+        $eventTitle = clean_input(trim($_POST['event_title']));
+        $eventStart = $_POST['event_start'];
+        $eventEnd = $_POST['event_end'];
+        
+        if (!empty($eventTitle) && !empty($eventStart) && !empty($eventEnd)) {
+            // Validation : La date de fin doit être après la date de début
+            if (strtotime($eventEnd) > strtotime($eventStart)) {
+                $stmt = $pdo->prepare("INSERT INTO project_agenda (project_id, title, start_event, end_event) VALUES (?, ?, ?, ?)");
+                $stmt->execute([$project_id, $eventTitle, $eventStart, $eventEnd]);
+                log_security_event("Événement '{$eventTitle}' ajouté au projet {$project_id} par user {$userId}");
+            }
+        }
+        header("Location: avancement.php?id=" . $project_id);
+        exit;
+    }
+
+    // 2C. AGENDA (SUPPRESSION ÉVÉNEMENT)
+    if (isset($_POST['delete_event_id'])) {
+        $eventId = secure_int($_POST['delete_event_id']);
+        // Vérification que l'événement appartient bien à ce projet (sécurité)
+        $stmt = $pdo->prepare("DELETE FROM project_agenda WHERE id = ? AND project_id = ?");
+        $stmt->execute([$eventId, $project_id]);
+        log_security_event("Événement {$eventId} supprimé du projet {$project_id} par user {$userId}");
+        header("Location: avancement.php?id=" . $project_id);
+        exit;
+    }
+
     // 3. FICHIERS (UPLOAD)
     if (isset($_FILES['new_file']) && $_FILES['new_file']['error'] === 0) {
         $existingFiles = array_diff(scandir($uploadDir), array('.', '..'));
@@ -181,6 +210,12 @@ if (file_exists($notesFile)) {
     $projectNotes = json_decode($jsonContent, true) ?? [];
 }
 
+// 6. Événements Agenda (Futurs uniquement)
+$agendaEvents = [];
+$stmtAgenda = $pdo->prepare("SELECT * FROM project_agenda WHERE project_id = ? AND start_event >= NOW() ORDER BY start_event ASC");
+$stmtAgenda->execute([$project_id]);
+$agendaEvents = $stmtAgenda->fetchAll(PDO::FETCH_ASSOC);
+
 // Helpers
 function get_status_badge($status) {
     $s = strtolower($status);
@@ -198,6 +233,20 @@ function get_file_icon($filename) {
     if (in_array($ext, ['zip', 'rar', '7z'])) return '<i class="far fa-file-archive" style="color:#f1c40f;"></i>';
     if (in_array($ext, ['php', 'html', 'css', 'js', 'py'])) return '<i class="far fa-file-code" style="color:#58d68d;"></i>';
     return '<i class="far fa-file" style="color:#999;"></i>';
+}
+
+function format_event_date($datetime) {
+    setlocale(LC_TIME, 'fr_FR.UTF-8', 'fra');
+    $timestamp = strtotime($datetime);
+    $jours = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'];
+    $mois = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Août', 'Sep', 'Oct', 'Nov', 'Déc'];
+    
+    $jour = $jours[date('w', $timestamp)];
+    $numero = date('d', $timestamp);
+    $moisNom = $mois[date('n', $timestamp) - 1];
+    $heure = date('H:i', $timestamp);
+    
+    return "{$jour} {$numero} {$moisNom} - {$heure}";
 }
 
 $bgImage = 'assets/default_banner.jpg';
@@ -470,6 +519,90 @@ if (!empty($project['image_url']) && file_exists($project['image_url'])) {
                         </label>
                     </form>
                     <br>
+                </div>
+
+                <!-- ═══════════════════════════════════════════════════════════════════ -->
+                <!--  WIDGET AGENDA & ÉVÉNEMENTS                                        -->
+                <!-- ═══════════════════════════════════════════════════════════════════ -->
+                <div class="detail-card">
+                    <h3><i class="fas fa-calendar-alt"></i> Agenda & Événements <small style="font-size:0.6em; margin-left:auto; color:#666;"><?= count($agendaEvents) ?> événements</small></h3>
+                    
+                    <!-- Formulaire d'ajout -->
+                    <form method="POST" style="margin-bottom: 20px; padding: 15px; background: rgba(255,255,255,0.03); border-radius: 8px; border: 1px solid rgba(186, 84, 245, 0.2);">
+                        <?= csrf_field() ?>
+                        <input type="hidden" name="add_event" value="1">
+                        
+                        <div style="margin-bottom: 10px;">
+                            <label style="display: block; color: #a9a9b3; font-size: 0.85rem; margin-bottom: 5px;">
+                                <i class="fas fa-tag"></i> Titre de l'événement
+                            </label>
+                            <input type="text" name="event_title" required 
+                                   placeholder="Ex: Réunion de kick-off"
+                                   style="width: 100%; padding: 8px; background: #1e1e2f; border: 1px solid #444; color: white; border-radius: 5px; font-size: 0.9rem;">
+                        </div>
+                        
+                        <div style="display: flex; gap: 10px; margin-bottom: 10px;">
+                            <div style="flex: 1;">
+                                <label style="display: block; color: #a9a9b3; font-size: 0.85rem; margin-bottom: 5px;">
+                                    <i class="far fa-clock"></i> Début
+                                </label>
+                                <input type="datetime-local" name="event_start" required 
+                                       style="width: 100%; padding: 8px; background: #1e1e2f; border: 1px solid #444; color: white; border-radius: 5px; font-size: 0.85rem;">
+                            </div>
+                            <div style="flex: 1;">
+                                <label style="display: block; color: #a9a9b3; font-size: 0.85rem; margin-bottom: 5px;">
+                                    <i class="far fa-clock"></i> Fin
+                                </label>
+                                <input type="datetime-local" name="event_end" required 
+                                       style="width: 100%; padding: 8px; background: #1e1e2f; border: 1px solid #444; color: white; border-radius: 5px; font-size: 0.85rem;">
+                            </div>
+                        </div>
+                        
+                        <button type="submit" class="btn-action" style="width: 100%; margin: 0;">
+                            <i class="fas fa-plus-circle"></i> Ajouter à l'agenda
+                        </button>
+                    </form>
+                    
+                    <!-- Liste des événements -->
+                    <?php if (count($agendaEvents) > 0): ?>
+                        <div style="max-height: 400px; overflow-y: auto;">
+                            <?php foreach ($agendaEvents as $event): ?>
+                                <div class="list-item" style="background: rgba(186, 84, 245, 0.05); border: 1px solid rgba(186, 84, 245, 0.2); margin-bottom: 10px; padding: 12px; border-radius: 8px;">
+                                    <div style="flex: 1;">
+                                        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 5px;">
+                                            <i class="fas fa-calendar-check" style="color: #ba54f5; font-size: 1.1rem;"></i>
+                                            <strong style="color: white; font-size: 0.95rem;">
+                                                <?= clean_output($event['title']) ?>
+                                            </strong>
+                                        </div>
+                                        <div style="font-size: 0.85rem; color: #a9a9b3; margin-left: 28px;">
+                                            <div style="margin-bottom: 3px;">
+                                                <i class="fas fa-play" style="color: #58d68d; font-size: 0.7rem;"></i>
+                                                <span style="margin-left: 5px;">Début : <?= format_event_date($event['start_event']) ?></span>
+                                            </div>
+                                            <div>
+                                                <i class="fas fa-stop" style="color: #e74c3c; font-size: 0.7rem;"></i>
+                                                <span style="margin-left: 5px;">Fin : <?= format_event_date($event['end_event']) ?></span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <form method="POST" onsubmit="return confirm('Supprimer cet événement ?');" style="margin-left: 10px;">
+                                        <?= csrf_field() ?>
+                                        <input type="hidden" name="delete_event_id" value="<?= $event['id'] ?>">
+                                        <button type="submit" class="file-delete-btn" style="padding: 5px 8px;">
+                                            <i class="fas fa-trash-alt"></i>
+                                        </button>
+                                    </form>
+                                </div>
+                            <?php endforeach; ?>
+                        </div>
+                    <?php else: ?>
+                        <div style="text-align: center; padding: 30px; color: #666;">
+                            <i class="fas fa-calendar-times" style="font-size: 2.5rem; margin-bottom: 10px; opacity: 0.3;"></i>
+                            <p style="font-style: italic; font-size: 0.9rem;">Aucun événement à venir.</p>
+                            <small style="font-size: 0.8rem; opacity: 0.7;">Ajoutez un événement pour commencer !</small>
+                        </div>
+                    <?php endif; ?>
                 </div>
 
             </div>
