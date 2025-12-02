@@ -28,11 +28,21 @@ body::before {
     animation: backgroundPulse 15s infinite alternate ease-in-out; /* Animation douce */
 }
 
+h1 {
+    color: #f0f0f0;
+    margin-bottom: 10px;
+    font-size: 24px;
+    font-weight: 600;
+}
+
 @keyframes backgroundPulse {
     0% { transform: scale(1); opacity: 0.7; }
     100% { transform: scale(1.1); opacity: 0.8; }
 }
 
+.logo-container {
+     : center
+}
 
 .auth-container {
     background: #21213b;
@@ -46,6 +56,7 @@ body::before {
     z-index: 10; /* Assure que le conteneur est au-dessus de l'animation de fond */
     transform: translateY(0);
     animation: fadeInScale 0.8s ease-out forwards; /* Animation d'apparition */
+    align-items: center;
 }
 
 @keyframes fadeInScale {
@@ -59,6 +70,19 @@ h2 {
     margin-bottom: 30px;
     font-weight: 600;
     letter-spacing: 0.5px; /* Espacement de lettres subtil */
+}
+
+p {
+    color: #b0b0c0;
+    margin-bottom: 30px;
+    font-size: 14px;
+}
+
+.auth-links {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 15px; /* Espace entre les deux boutons */
 }
 
 .form-group {
@@ -144,17 +168,30 @@ input[type="password"]:focus {
 /* Padding légèrement augmenté pour le bouton */
 .btn-login-or-register {
     width: 100%;
-    padding: 14px; /* Padding légèrement augmenté pour le bouton */
-    background: linear-gradient(45deg, #845ef7 0%, #6c47c2 100%); /* Dégradé sur le bouton */
+    padding: 14px;
+    background: linear-gradient(45deg, #845ef7 0%, #6c47c2 100%);
     color: white;
     text-decoration: none;
     border: none;
     border-radius: 6px;
-    cursor: pointer;
-    font-size: 18px;
+    font-size: 16px;
     font-weight: 600;
     letter-spacing: 0.8px;
-    transition: background-color 0.3s ease, transform 0.15s ease, box-shadow 0.3s ease;
-    box-shadow: 0 4px 10px rgba(132, 94, 247, 0.3); /* Ombre pour le bouton */
+    text-align: center;
+    box-sizing: border-box; /* Important pour que le padding ne dépasse pas */
+    
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 10px rgba(132, 94, 247, 0.3);
+    display: block; /* Assure que le lien se comporte comme un bloc */
+}
+
+.btn-login-or-register:hover {
+    background: linear-gradient(45deg, #7a50e0 0%, #5d3aa8 100%);
+    transform: translateY(-2px) scale(1.01);
+    box-shadow: 0 6px 15px rgba(132, 94, 247, 0.4);
+}
+
+.btn-login-or-register:active {
+    transform: translateY(0px) scale(0.99);
 }
 /* ============================================== */

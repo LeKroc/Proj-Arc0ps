@@ -246,7 +246,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_project'])) {
                     <span class="close-modal" onclick="closeModal()">&times;</span>
                     <h2>Nouveau Projet</h2>
 
-                    <form method="POST" action="">
+                    <form method="POST" action="" enctype="multipart/form-data">
                         <input type="hidden" name="create_project" value="1">
 
                         <div class="form-group">
@@ -262,7 +262,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_project'])) {
                         <div class="form-group">
                             <label>Image de couverture (Optionnel)</label>
                             <div class="file-input-wrapper">
-                                <input type="file" name="project_image" id="proj_img" accept="image/*">
+                                <input type="file" name="project_image" id="proj_img" accept="image/png, image/jpeg, image/gif">
                                 <label for="proj_img" class="file-label">
                                     <i class="fas fa-image"></i> Choisir une image...
                                 </label>
