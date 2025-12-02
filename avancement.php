@@ -28,7 +28,6 @@ if (!is_dir($notesDir))  { mkdir($notesDir, 0777, true); }
 
 // --- FONCTION DE RECALCUL DE LA PROGRESSION ---
 function recalculateProgress($pdo, $pid) {
-    // Somme des poids des objectifs terminés
     $stmt = $pdo->prepare("SELECT SUM(weight) FROM project_objectives WHERE project_id = ? AND is_done = 1");
     $stmt->execute([$pid]);
     $progress = (int)$stmt->fetchColumn();
@@ -47,9 +46,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (isset($_POST['new_objective_text'])) {
         $text = trim($_POST['new_objective_text']);
         if (!empty($text)) {
-            // Par défaut, on peut mettre un poids arbitraire si non spécifié ici, ou gérer via settings
-            // Pour l'instant, on met 0 ou on pourrait demander un poids.
-            // On insère avec weight par défaut (0)
             $stmt = $pdo->prepare("INSERT INTO project_objectives (project_id, text) VALUES (?, ?)");
             $stmt->execute([$project_id, $text]);
             recalculateProgress($pdo, $project_id);
@@ -132,7 +128,7 @@ $project = $stmt->fetch(PDO::FETCH_ASSOC);
 if (!$project) die("❌ Projet introuvable.");
 
 // 2. Membres
-$sqlMembers = "SELECT u.username, u.avatar_url, pm.role 
+$sqlMembers = "SELECT u.username, u.avatar_url, u.bio, pm.role 
                FROM project_members pm 
                JOIN users u ON pm.user_id = u.id 
                WHERE pm.project_id = ?";
@@ -153,7 +149,7 @@ if (is_dir($uploadDir)) {
     foreach($scanned_files as $file) { $projectFiles[] = $file; }
 }
 
-// 5. Notes (Lecture JSON)
+// 5. Notes
 $projectNotes = [];
 if (file_exists($notesFile)) {
     $jsonContent = file_get_contents($notesFile);
@@ -221,6 +217,29 @@ if (!empty($project['image_url']) && file_exists($project['image_url'])) {
             font-family: inherit; margin-bottom: 10px;
         }
         .note-textarea:focus { outline: none; border-color: #ba54f5; }
+
+        /* --- STYLE BARRE PROGRESSION VERTE --- */
+        .progress-bar-container {
+            width: 100%;
+            background-color: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            height: 22px;
+            overflow: hidden;
+            margin-top: 5px;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background-color: #2ecc71 !important; /* VERT */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #fff;
+            font-size: 0.75rem;
+            font-weight: bold;
+            transition: width 0.6s ease;
+            box-shadow: 0 0 10px rgba(46, 204, 113, 0.4);
+        }
     </style>
 </head>
 <body>
@@ -231,21 +250,15 @@ if (!empty($project['image_url']) && file_exists($project['image_url'])) {
         <div class="logo"><i class="fas fa-shopping-cart"></i> Λrc0ps</div>
         <div class="user-profile">
             <?php 
-                // 1. Logique d'affichage de l'image
-                $displayImg = 'assets/PhotoProfile/default_avatar.png'; // Défaut
-                $imgClass = 'avatar'; // Classe CSS pour rond
-
-                // 2. Si on est dans un projet avec image : Carré
+                $displayImg = 'assets/PhotoProfile/default_avatar.png';
+                $imgClass = 'avatar';
                 if (isset($project) && !empty($project['image_url']) && file_exists($project['image_url'])) {
                     $displayImg = $project['image_url'];
                     $imgClass = 'project-avatar-sidebar'; 
-                } 
-                // 3. Sinon : Avatar User Rond
-                elseif (isset($_SESSION['user_avatar']) && !empty($_SESSION['user_avatar'])) {
+                } elseif (isset($_SESSION['user_avatar']) && !empty($_SESSION['user_avatar'])) {
                      $displayImg = $_SESSION['user_avatar'];
                 }
             ?>
-            
             <img src="<?= htmlspecialchars($displayImg) ?>" class="<?= $imgClass ?>" alt="Icone">
             
             <div style="margin-top:10px;">
@@ -303,6 +316,15 @@ if (!empty($project['image_url']) && file_exists($project['image_url'])) {
             <div class="left-column">
                 
                 <div class="detail-card">
+                    <h3><i class="fas fa-chart-line"></i> Avancement Global</h3>
+                    <div class="progress-bar-container">
+                        <div class="progress-fill" style="width: <?= $project['progression'] ?>%;">
+                            <?= $project['progression'] ?>%
+                        </div>
+                    </div>
+                </div>
+
+                <div class="detail-card">
                     <h3><i class="fas fa-align-left"></i> Description</h3>
                     <p style="line-height: 1.6; color:#ccc;">
                         <?= nl2br(htmlspecialchars_decode($project['description'])) ?>
@@ -356,7 +378,7 @@ if (!empty($project['image_url']) && file_exists($project['image_url'])) {
                             </div>
                         <?php endforeach; ?>
                     <?php else: ?>
-                        <p style="color:#666; font-style:italic;">Aucune note.</p>
+                        <p style="color:#666;">Aucune note.</p>
                     <?php endif; ?>
                 </div>
 
@@ -375,7 +397,12 @@ if (!empty($project['image_url']) && file_exists($project['image_url'])) {
                             <div class="list-item">
                                 <div class="user-info">
                                     <img src="<?= htmlspecialchars($memAvatar) ?>" class="mini-avatar" alt="Avatar">
-                                    <span><?= htmlspecialchars($member['username']) ?></span>
+                                    <div>
+                                        <span style="display:block; line-height:1;"><?= htmlspecialchars($member['username']) ?></span>
+                                        <small style="font-size:0.85em; color:#999;">
+                                            <?= htmlspecialchars(substr($member['bio'] ?? 'Pas de bio', 0, 30)) . (strlen($member['bio']) > 30 ? '...' : '') ?>
+                                        </small>
+                                    </div>
                                 </div>
                                 <span class="status-badge" style="background:rgba(255,255,255,0.1);"><?= htmlspecialchars($member['role']) ?></span>
                             </div>
