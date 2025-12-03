@@ -1,4 +1,5 @@
-<?php
+
+</html><?php
 // Inclusion des fonctions de sécurité
 require_once 'functions.php';
 
@@ -143,4 +144,3 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         </p>
     </div>
 </body>
-</html>

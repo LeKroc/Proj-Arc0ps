@@ -1,7 +1,7 @@
 <?php
 // db.php
     
-define('SECRET_KEY', 'kshdlsksjdjdk;+€(+3(€(€-3))_jdjsh');
+define('SECRET_KEY', 'laphraseachangerpourquelquechosedunqiue!');
 
 // --- SECURITE ---
 // Cette clé sert à signer tes cookies. Change-la pour une phrase unique et longue !

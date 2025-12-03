@@ -406,7 +406,7 @@ if (!empty($project['image_url']) && file_exists($project['image_url'])) {
                 </div>
 
                 <div class="detail-card">
-                    <h3><i class="fas fa-tasks"></i> Objectifs du Sprint</h3>
+                    <h3><i class="fas fa-tasks"></i> Objectifs</h3>
                     <div class="objectives-list">
                         <?php if(count($objectives) > 0): ?>
                             <?php foreach($objectives as $obj): ?>

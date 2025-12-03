@@ -11,7 +11,7 @@
   
   [![PHP Version](https://img.shields.io/badge/PHP-8.2%2B-777BB4?style=flat&logo=php)](https://www.php.net/)
   [![MySQL](https://img.shields.io/badge/MySQL-8.0%2B-4479A1?style=flat&logo=mysql&logoColor=white)](https://www.mysql.com/)
-  [![Security](https://img.shields.io/badge/Security-OWASP%20Compliant-success?style=flat&logo=security)](https://owasp.org/)
+  [![Security](https://img.shields.io/badge/Security-Devops%20Compliant-success?style=flat&logo=security)](https://owasp.org/)
   [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
   
   **Plateforme centralisée de gestion de projets sécurisée avec approche DevSecOps**
