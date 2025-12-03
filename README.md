@@ -262,9 +262,9 @@ Projet réalisé dans le cadre du cursus **DevSecOps - Guardia Cybersecurity Sch
 | Membre | Rôle | GitHub |
 |--------|------|--------|
 | **LeKroc** | Lead Developer & Owner | [@LeKroc](https://github.com/LeKroc) |
-| **Luca** | Backend Developer | [@Luca](https://github.com/Luca) |
-| **Rayan** | Frontend Developer | [@Rayan](https://github.com/Rayan) |
-| **Bost** | DevSecOps Engineer | [@Bost](https://github.com/Bost) |
+| **Luca** | Backend Developer | [@Luca](https://github.com/LeKroc/Proj-Arc0ps) |
+| **Rayan** | Frontend Developer | [@Rayan](https://github.com/LeKroc/Proj-Arc0ps) |
+| **Bost** | DevSecOps Engineer | [@Bost](https://github.com/theBost-Guardia) |
 
 </div>
 
