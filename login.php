@@ -47,23 +47,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $_SESSION['user_id']  = (int)$user['id'];
             $_SESSION['username'] = $user['username'];
 
-            // 2. Création du Cookie Personnalisé
-            // A. On prépare les données : Username + Date
+           
             $infoBrute = $user['username'] . '|' . date('Y-m-d H:i:s');
             
-            // B. Encodage Base64
             $base64 = base64_encode($infoBrute);
             
-            // C. Ajout des 4 caractères aléatoires (suffixe)
             $randomSuffix = bin2hex(random_bytes(2));
             
-            // D. Le contenu final du cookie avant signature (Base64 + Random)
             $payload = $base64 . $randomSuffix;
             
-            // E. Signature HMAC (Sécurité)
             $signature = hash_hmac('sha256', $payload, SECRET_KEY);
-            
-            // F. Envoi du cookie : Payload + Point + Signature
+        
             setcookie(
                 'mon_site_auth', 
                 $payload . '.' . $signature, 
@@ -79,27 +73,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             exit;
 
         } 
-        // ═══════════════════════════════════════════════════════════════════
-        //  CONNEXION ADMIN (Authentification hardcodée séparée)
-        // ═══════════════════════════════════════════════════════════════════
-        elseif ($identifier === 'admin' && $pass === 'go_admin_1234!!') {
-            // Connexion admin réussie
-            session_regenerate_id(true);
-            $_SESSION['is_admin'] = true;
-            $_SESSION['admin_logged_at'] = time();
-            $_SESSION['username'] = 'Administrator';
-            
-            log_security_event("Connexion admin réussie depuis IP : " . ($_SERVER['REMOTE_ADDR'] ?? 'unknown'));
-            
-            // Redirection vers le panel admin
-            header('Location: admin_panel.php');
-            exit;
-        }
-        // ═══════════════════════════════════════════════════════════════════
-        else {
-            $message = "❌ Erreur : Identifiant ou mot de passe incorrect.";
-            log_security_event("Tentative de connexion échouée pour : " . $identifier);
-        }
     }
 }
 ?>
