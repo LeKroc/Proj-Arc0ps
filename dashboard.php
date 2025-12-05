@@ -55,50 +55,80 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     csrf_protect();
 }
 
-// --- 4. TRAITEMENT CREATION PROJET (AVEC IMAGE) ---
+// --- 4. TRAITEMENT CREATION PROJET (DEBUG MODE) ---
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_project'])) {
-    if (isset($pdo)) {
-        // Sécurisation
-        $title = clean_input($_POST['project_name']);
-        $desc = clean_input($_POST['project_desc']);
-        $owner = secure_int($_SESSION['user_id']);
+    
+    // On force l'affichage des erreurs ici spécifiquement
+    ini_set('display_errors', 1);
+    error_reporting(E_ALL);
+
+    try {
+        if (!isset($pdo)) { throw new Exception("La variable \$pdo n'existe pas dans le bloc POST."); }
+
+        // Sécurisation (Si clean_input n'existe pas, on utilise htmlspecialchars pour tester)
+        $title = function_exists('clean_input') ? clean_input($_POST['project_name']) : htmlspecialchars($_POST['project_name']);
+        $desc  = function_exists('clean_input') ? clean_input($_POST['project_desc']) : htmlspecialchars($_POST['project_desc']);
+        $owner = $_SESSION['user_id'];
         $imagePath = null; 
 
-        // Upload Image Projet (SÉCURISÉ)
+        // Upload Image
         if (isset($_FILES['project_image']) && $_FILES['project_image']['error'] === 0) {
-            $validation = validate_file_upload($_FILES['project_image'], ['jpg', 'jpeg', 'png', 'gif', 'webp'], 5242880);
-            
-            if ($validation['success']) {
+            $allowed = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
+            $fileExt = strtolower(pathinfo($_FILES['project_image']['name'], PATHINFO_EXTENSION));
+
+            if (in_array($fileExt, $allowed)) {
                 $uploadDir = 'assets/imageProject/';
                 if (!is_dir($uploadDir)) mkdir($uploadDir, 0755, true);
                 
-                $destPath = $uploadDir . $validation['safe_name'];
+                $uniqueName = uniqid('proj_') . '.' . $fileExt;
+                $destPath = $uploadDir . $uniqueName;
                 
                 if (move_uploaded_file($_FILES['project_image']['tmp_name'], $destPath)) {
                     $imagePath = $destPath;
                 } else {
-                    log_security_event("Échec du déplacement du fichier uploadé : " . $_FILES['project_image']['name']);
+                    echo "<p style='color:orange'>⚠️ Attention : L'image n'a pas pu être déplacée (problème de permissions dossier ?).</p>";
                 }
-            } else {
-                log_security_event("Tentative d'upload de fichier invalide : " . $validation['message']);
             }
         }
 
-        // Insertion BDD
-        $sql = "INSERT INTO projects (owner_id, title, description, created_at, updated_at, is_pinned, image_url, status, progression) VALUES (?, ?, ?, NOW(), NOW(), 0, ?, 'En Cours', 0)";
+        // --- TEST SQL 1 : INSERTION PROJET ---
+        // Vérifiez bien que vos colonnes dans la BDD s'appellent : owner_id, title, description, image_url...
+        $sql = "INSERT INTO projects (owner_id, title, description, created_at, updated_at, is_pinned, image_url, status, progression) 
+                VALUES (?, ?, ?, NOW(), NOW(), 0, ?, 'En Cours', 0)";
+        
         $stmt = $pdo->prepare($sql);
         
-        if ($stmt->execute([$owner, $title, $desc, $imagePath])) {
-            
-            // --- NOUVEAU : On ajoute le créateur comme OWNER dans les membres ---
-            $newProjectId = (int)$pdo->lastInsertId();
-            $stmtMember = $pdo->prepare("INSERT INTO project_members (project_id, user_id, role) VALUES (?, ?, 'owner')");
-            $stmtMember->execute([$newProjectId, $owner]);
-            // --------------------------------------------------------------------
-
-            header("Location: " . $_SERVER['PHP_SELF']);
-            exit;
+        if (!$stmt->execute([$owner, $title, $desc, $imagePath])) {
+            // Si l'exécution échoue sans exception (rare avec PDO configuré, mais possible)
+            $err = $stmt->errorInfo();
+            throw new Exception("Erreur SQL lors de l'insertion projet : " . $err[2]);
         }
+            
+        $newProjectId = $pdo->lastInsertId();
+
+        // --- TEST SQL 2 : INSERTION MEMBRES ---
+        // Avez-vous bien créé la table 'project_members' ?
+        $sqlMember = "INSERT INTO project_members (project_id, user_id, role) VALUES (?, ?, 'owner')";
+        $stmtMember = $pdo->prepare($sqlMember);
+        
+        if (!$stmtMember->execute([$newProjectId, $owner])) {
+            $err = $stmtMember->errorInfo();
+            throw new Exception("Erreur SQL lors de l'ajout membre (Table project_members existe-t-elle ?) : " . $err[2]);
+        }
+
+        // Si tout est OK
+        header("Location: " . $_SERVER['PHP_SELF']);
+        exit;
+
+    } catch (PDOException $e) {
+        // C'est ici que l'erreur va s'afficher !
+        die("<div style='background:red; color:white; padding:20px; margin:20px; font-size:18px;'>
+                <strong>❌ ERREUR SQL FATALE :</strong><br>" . $e->getMessage() . 
+            "</div>");
+    } catch (Exception $e) {
+        die("<div style='background:orange; color:black; padding:20px; margin:20px; font-size:18px;'>
+                <strong>⚠️ ERREUR LOGIQUE :</strong><br>" . $e->getMessage() . 
+            "</div>");
     }
 }
 
